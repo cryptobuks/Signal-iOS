@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 #import "TSInvalidIdentityKeyErrorMessage.h"
@@ -19,10 +19,15 @@ NS_ASSUME_NONNULL_BEGIN
     return nil;
 }
 
-- (NSString *)theirSignalId
+- (SignalServiceAddress *)theirSignalAddress
 {
     OWSAbstractMethod();
     return nil;
+}
+
+- (BOOL)isSpecialMessage
+{
+    return YES;
 }
 
 @end

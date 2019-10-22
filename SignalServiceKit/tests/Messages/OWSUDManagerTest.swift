@@ -1,9 +1,10 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import XCTest
 import Foundation
+import Curve25519Kit
 import SignalCoreKit
 import SignalMetadataKit
 @testable import SignalServiceKit
@@ -22,7 +23,7 @@ class MockCertificateValidator: NSObject, SMKCertificateValidator {
 
 class OWSUDManagerTest: SSKBaseTestSwift {
 
-    // MARK: - Singletons
+    // MARK: - Dependencies
 
     private var tsAccountManager: TSAccountManager {
         return TSAccountManager.sharedInstance()
@@ -36,30 +37,26 @@ class OWSUDManagerTest: SSKBaseTestSwift {
         return SSKEnvironment.shared.profileManager
     }
 
-    // MARK: registration
-    let aliceRecipientId = "+13213214321"
+    // MARK: - Setup/Teardown
+
+    let aliceE164 = "+13213214321"
+    let aliceUuid = UUID()
+    lazy var aliceAddress = SignalServiceAddress(uuid: aliceUuid, phoneNumber: aliceE164)
 
     override func setUp() {
         super.setUp()
 
-        tsAccountManager.registerForTests(withLocalNumber: aliceRecipientId)
+        tsAccountManager.registerForTests(withLocalNumber: aliceE164, uuid: aliceUuid)
 
         // Configure UDManager
-        profileManager.setProfileKeyData(OWSAES256Key.generateRandom().keyData, forRecipientId: aliceRecipientId)
+        self.write { transaction in
+            self.profileManager.setProfileKeyData(OWSAES256Key.generateRandom().keyData, for: self.aliceAddress, transaction: transaction)
+        }
 
         udManager.certificateValidator = MockCertificateValidator()
 
-        let serverCertificate = SMKServerCertificate(keyId: 1,
-                                                     key: try! ECPublicKey(keyData: Randomness.generateRandomBytes(ECCKeyLength)),
-                                                     signatureData: Randomness.generateRandomBytes(ECCSignatureLength))
-        let senderCertificate = SMKSenderCertificate(signer: serverCertificate,
-                                                     key: try! ECPublicKey(keyData: Randomness.generateRandomBytes(ECCKeyLength)),
-                                                     senderDeviceId: 1,
-                                                     senderRecipientId: aliceRecipientId,
-                                                     expirationTimestamp: NSDate.ows_millisecondTimeStamp() + kWeekInMs,
-                                                     signatureData: Randomness.generateRandomBytes(ECCSignatureLength))
-
-        udManager.setSenderCertificate(try! senderCertificate.serialized())
+        let senderCertificate = try! SMKSenderCertificate(serializedData: buildSenderCertificateProto().serializedData())
+        udManager.setSenderCertificate(senderCertificate.serializedData)
     }
 
     override func tearDown() {
@@ -67,114 +64,162 @@ class OWSUDManagerTest: SSKBaseTestSwift {
         super.tearDown()
     }
 
+    // MARK: - Tests
+
     func testMode_self() {
 
         XCTAssert(udManager.hasSenderCertificate())
-        XCTAssert(tsAccountManager.isRegistered())
-        XCTAssertNotNil(tsAccountManager.localNumber())
-        XCTAssert(tsAccountManager.localNumber()!.count > 0)
+        XCTAssert(tsAccountManager.isRegistered)
+        guard let localAddress = tsAccountManager.localAddress else {
+            XCTFail("localAddress was unexpectedly nil")
+            return
+        }
+        XCTAssert(localAddress.isValid)
 
         var udAccess: OWSUDAccess!
 
-        XCTAssertEqual(.enabled, udManager.unidentifiedAccessMode(forRecipientId: aliceRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: aliceRecipientId, requireSyncAccess: false)
+        XCTAssertEqual(.enabled, udManager.unidentifiedAccessMode(forAddress: aliceAddress))
+        udAccess = udManager.udAccess(forAddress: aliceAddress, requireSyncAccess: false)
         XCTAssertFalse(udAccess.isRandomKey)
 
-        udManager.setUnidentifiedAccessMode(.unknown, recipientId: aliceRecipientId)
-        XCTAssertEqual(.unknown, udManager.unidentifiedAccessMode(forRecipientId: aliceRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: aliceRecipientId, requireSyncAccess: false)!
+        udManager.setUnidentifiedAccessMode(.unknown, address: aliceAddress)
+        XCTAssertEqual(.unknown, udManager.unidentifiedAccessMode(forAddress: aliceAddress))
+        udAccess = udManager.udAccess(forAddress: aliceAddress, requireSyncAccess: false)!
         XCTAssertFalse(udAccess.isRandomKey)
 
-        udManager.setUnidentifiedAccessMode(.disabled, recipientId: aliceRecipientId)
-        XCTAssertEqual(.disabled, udManager.unidentifiedAccessMode(forRecipientId: aliceRecipientId))
-        XCTAssertNil(udManager.udAccess(forRecipientId: aliceRecipientId, requireSyncAccess: false))
+        udManager.setUnidentifiedAccessMode(.disabled, address: aliceAddress)
+        XCTAssertEqual(.disabled, udManager.unidentifiedAccessMode(forAddress: aliceAddress))
+        XCTAssertNil(udManager.udAccess(forAddress: aliceAddress, requireSyncAccess: false))
 
-        udManager.setUnidentifiedAccessMode(.enabled, recipientId: aliceRecipientId)
-        XCTAssert(UnidentifiedAccessMode.enabled == udManager.unidentifiedAccessMode(forRecipientId: aliceRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: aliceRecipientId, requireSyncAccess: false)!
+        udManager.setUnidentifiedAccessMode(.enabled, address: aliceAddress)
+        XCTAssert(UnidentifiedAccessMode.enabled == udManager.unidentifiedAccessMode(forAddress: aliceAddress))
+        udAccess = udManager.udAccess(forAddress: aliceAddress, requireSyncAccess: false)!
         XCTAssertFalse(udAccess.isRandomKey)
 
-        udManager.setUnidentifiedAccessMode(.unrestricted, recipientId: aliceRecipientId)
-        XCTAssertEqual(.unrestricted, udManager.unidentifiedAccessMode(forRecipientId: aliceRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: aliceRecipientId, requireSyncAccess: false)!
+        udManager.setUnidentifiedAccessMode(.unrestricted, address: aliceAddress)
+        XCTAssertEqual(.unrestricted, udManager.unidentifiedAccessMode(forAddress: aliceAddress))
+        udAccess = udManager.udAccess(forAddress: aliceAddress, requireSyncAccess: false)!
         XCTAssert(udAccess.isRandomKey)
     }
 
     func testMode_noProfileKey() {
 
         XCTAssert(udManager.hasSenderCertificate())
-        XCTAssert(tsAccountManager.isRegistered())
-        XCTAssertNotNil(tsAccountManager.localNumber())
-        XCTAssert(tsAccountManager.localNumber()!.count > 0)
+        XCTAssert(tsAccountManager.isRegistered)
+        guard let localAddress = tsAccountManager.localAddress else {
+            XCTFail("localAddress was unexpectedly nil")
+            return
+        }
+        XCTAssert(localAddress.isValid)
 
         // Ensure UD is enabled by setting our own access level to enabled.
-        udManager.setUnidentifiedAccessMode(.enabled, recipientId: tsAccountManager.localNumber()!)
+        udManager.setUnidentifiedAccessMode(.enabled, address: localAddress)
 
-        let bobRecipientId = "+13213214322"
-        XCTAssertNotEqual(bobRecipientId, tsAccountManager.localNumber()!)
+        let bobRecipientAddress = SignalServiceAddress(phoneNumber: "+13213214322")
+        XCTAssertFalse(bobRecipientAddress.isLocalAddress)
 
         var udAccess: OWSUDAccess!
 
-        XCTAssertEqual(UnidentifiedAccessMode.unknown, udManager.unidentifiedAccessMode(forRecipientId: bobRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: bobRecipientId, requireSyncAccess: false)!
+        XCTAssertEqual(UnidentifiedAccessMode.unknown, udManager.unidentifiedAccessMode(forAddress: bobRecipientAddress))
+        udAccess = udManager.udAccess(forAddress: bobRecipientAddress, requireSyncAccess: false)!
         XCTAssert(udAccess.isRandomKey)
 
-        udManager.setUnidentifiedAccessMode(.unknown, recipientId: bobRecipientId)
-        XCTAssertEqual(UnidentifiedAccessMode.unknown, udManager.unidentifiedAccessMode(forRecipientId: bobRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: bobRecipientId, requireSyncAccess: false)!
+        udManager.setUnidentifiedAccessMode(.unknown, address: bobRecipientAddress)
+        XCTAssertEqual(UnidentifiedAccessMode.unknown, udManager.unidentifiedAccessMode(forAddress: bobRecipientAddress))
+        udAccess = udManager.udAccess(forAddress: bobRecipientAddress, requireSyncAccess: false)!
         XCTAssert(udAccess.isRandomKey)
 
-        udManager.setUnidentifiedAccessMode(.disabled, recipientId: bobRecipientId)
-        XCTAssertEqual(UnidentifiedAccessMode.disabled, udManager.unidentifiedAccessMode(forRecipientId: bobRecipientId))
-        XCTAssertNil(udManager.udAccess(forRecipientId: bobRecipientId, requireSyncAccess: false))
+        udManager.setUnidentifiedAccessMode(.disabled, address: bobRecipientAddress)
+        XCTAssertEqual(UnidentifiedAccessMode.disabled, udManager.unidentifiedAccessMode(forAddress: bobRecipientAddress))
+        XCTAssertNil(udManager.udAccess(forAddress: bobRecipientAddress, requireSyncAccess: false))
 
-        udManager.setUnidentifiedAccessMode(.enabled, recipientId: bobRecipientId)
-        XCTAssertEqual(UnidentifiedAccessMode.enabled, udManager.unidentifiedAccessMode(forRecipientId: bobRecipientId))
-        XCTAssertNil(udManager.udAccess(forRecipientId: bobRecipientId, requireSyncAccess: false))
+        udManager.setUnidentifiedAccessMode(.enabled, address: bobRecipientAddress)
+        XCTAssertEqual(UnidentifiedAccessMode.enabled, udManager.unidentifiedAccessMode(forAddress: bobRecipientAddress))
+        XCTAssertNil(udManager.udAccess(forAddress: bobRecipientAddress, requireSyncAccess: false))
 
         // Bob should work in unrestricted mode, even if he doesn't have a profile key.
-        udManager.setUnidentifiedAccessMode(.unrestricted, recipientId: bobRecipientId)
-        XCTAssertEqual(UnidentifiedAccessMode.unrestricted, udManager.unidentifiedAccessMode(forRecipientId: bobRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: bobRecipientId, requireSyncAccess: false)!
+        udManager.setUnidentifiedAccessMode(.unrestricted, address: bobRecipientAddress)
+        XCTAssertEqual(UnidentifiedAccessMode.unrestricted, udManager.unidentifiedAccessMode(forAddress: bobRecipientAddress))
+        udAccess = udManager.udAccess(forAddress: bobRecipientAddress, requireSyncAccess: false)!
         XCTAssert(udAccess.isRandomKey)
     }
 
     func testMode_withProfileKey() {
         XCTAssert(udManager.hasSenderCertificate())
-        XCTAssert(tsAccountManager.isRegistered())
-        XCTAssertNotNil(tsAccountManager.localNumber())
-        XCTAssert(tsAccountManager.localNumber()!.count > 0)
+        XCTAssert(tsAccountManager.isRegistered)
+        guard let localAddress = tsAccountManager.localAddress else {
+            XCTFail("localAddress was unexpectedly nil")
+            return
+        }
+        XCTAssert(localAddress.isValid)
 
         // Ensure UD is enabled by setting our own access level to enabled.
-        udManager.setUnidentifiedAccessMode(.enabled, recipientId: tsAccountManager.localNumber()!)
+        udManager.setUnidentifiedAccessMode(.enabled, address: localAddress)
 
-        let bobRecipientId = "+13213214322"
-        XCTAssertNotEqual(bobRecipientId, tsAccountManager.localNumber()!)
-        profileManager.setProfileKeyData(OWSAES256Key.generateRandom().keyData, forRecipientId: bobRecipientId)
+        let bobRecipientAddress = SignalServiceAddress(phoneNumber: "+13213214322")
+        XCTAssertFalse(bobRecipientAddress.isLocalAddress)
+        self.write { transaction in
+            self.profileManager.setProfileKeyData(OWSAES256Key.generateRandom().keyData, for: bobRecipientAddress, transaction: transaction)
+        }
 
         var udAccess: OWSUDAccess!
 
-        XCTAssertEqual(.unknown, udManager.unidentifiedAccessMode(forRecipientId: bobRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: bobRecipientId, requireSyncAccess: false)!
+        XCTAssertEqual(.unknown, udManager.unidentifiedAccessMode(forAddress: bobRecipientAddress))
+        udAccess = udManager.udAccess(forAddress: bobRecipientAddress, requireSyncAccess: false)!
         XCTAssertFalse(udAccess.isRandomKey)
 
-        udManager.setUnidentifiedAccessMode(.unknown, recipientId: bobRecipientId)
-        XCTAssertEqual(.unknown, udManager.unidentifiedAccessMode(forRecipientId: bobRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: bobRecipientId, requireSyncAccess: false)!
+        udManager.setUnidentifiedAccessMode(.unknown, address: bobRecipientAddress)
+        XCTAssertEqual(.unknown, udManager.unidentifiedAccessMode(forAddress: bobRecipientAddress))
+        udAccess = udManager.udAccess(forAddress: bobRecipientAddress, requireSyncAccess: false)!
         XCTAssertFalse(udAccess.isRandomKey)
 
-        udManager.setUnidentifiedAccessMode(.disabled, recipientId: bobRecipientId)
-        XCTAssertEqual(.disabled, udManager.unidentifiedAccessMode(forRecipientId: bobRecipientId))
-        XCTAssertNil(udManager.udAccess(forRecipientId: bobRecipientId, requireSyncAccess: false))
+        udManager.setUnidentifiedAccessMode(.disabled, address: bobRecipientAddress)
+        XCTAssertEqual(.disabled, udManager.unidentifiedAccessMode(forAddress: bobRecipientAddress))
+        XCTAssertNil(udManager.udAccess(forAddress: bobRecipientAddress, requireSyncAccess: false))
 
-        udManager.setUnidentifiedAccessMode(.enabled, recipientId: bobRecipientId)
-        XCTAssertEqual(.enabled, udManager.unidentifiedAccessMode(forRecipientId: bobRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: bobRecipientId, requireSyncAccess: false)!
+        udManager.setUnidentifiedAccessMode(.enabled, address: bobRecipientAddress)
+        XCTAssertEqual(.enabled, udManager.unidentifiedAccessMode(forAddress: bobRecipientAddress))
+        udAccess = udManager.udAccess(forAddress: bobRecipientAddress, requireSyncAccess: false)!
         XCTAssertFalse(udAccess.isRandomKey)
 
-        udManager.setUnidentifiedAccessMode(.unrestricted, recipientId: bobRecipientId)
-        XCTAssertEqual(.unrestricted, udManager.unidentifiedAccessMode(forRecipientId: bobRecipientId))
-        udAccess = udManager.udAccess(forRecipientId: bobRecipientId, requireSyncAccess: false)!
+        udManager.setUnidentifiedAccessMode(.unrestricted, address: bobRecipientAddress)
+        XCTAssertEqual(.unrestricted, udManager.unidentifiedAccessMode(forAddress: bobRecipientAddress))
+        udAccess = udManager.udAccess(forAddress: bobRecipientAddress, requireSyncAccess: false)!
         XCTAssert(udAccess.isRandomKey)
+    }
+
+    // MARK: - Util
+
+    func buildServerCertificateProto() -> SMKProtoServerCertificate {
+        let serverKey = try! Curve25519.generateKeyPair().ecPublicKey().serialized
+        let certificateData = try! SMKProtoServerCertificateCertificate.builder(id: 1,
+                                                                                key: serverKey ).buildSerializedData()
+
+        let signatureData = Randomness.generateRandomBytes(ECCSignatureLength)
+
+        let wrapperProto = SMKProtoServerCertificate.builder(certificate: certificateData,
+                                                             signature: signatureData)
+
+        return try! wrapperProto.build()
+    }
+
+    func buildSenderCertificateProto() -> SMKProtoSenderCertificate {
+        let expires = NSDate.ows_millisecondTimeStamp() + kWeekInMs
+        let identityKey = try! Curve25519.generateKeyPair().ecPublicKey().serialized
+        let signer = buildServerCertificateProto()
+        let certificateBuilder = SMKProtoSenderCertificateCertificate.builder(senderDevice: 1,
+                                                                              expires: expires,
+                                                                              identityKey: identityKey,
+                                                                              signer: signer)
+        certificateBuilder.setSenderE164(aliceE164)
+        certificateBuilder.setSenderUuid(aliceUuid.uuidString)
+        let certificateData = try! certificateBuilder.buildSerializedData()
+
+        let signatureData = Randomness.generateRandomBytes(ECCSignatureLength)
+
+        let wrapperProto = try! SMKProtoSenderCertificate.builder(certificate: certificateData,
+                                                                  signature: signatureData).build()
+
+        return wrapperProto
     }
 }

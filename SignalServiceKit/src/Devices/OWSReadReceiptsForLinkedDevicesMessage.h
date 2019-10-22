@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 #import "OWSOutgoingSyncMessage.h"
@@ -11,8 +11,11 @@ NS_ASSUME_NONNULL_BEGIN
 @interface OWSReadReceiptsForLinkedDevicesMessage : OWSOutgoingSyncMessage
 
 - (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithThread:(TSThread *)thread NS_UNAVAILABLE;
+- (instancetype)initWithTimestamp:(uint64_t)timestamp thread:(TSThread *)thread NS_UNAVAILABLE;
 
-- (instancetype)initWithReadReceipts:(NSArray<OWSLinkedDeviceReadReceipt *> *)readReceipts NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithThread:(TSThread *)thread
+                  readReceipts:(NSArray<OWSLinkedDeviceReadReceipt *> *)readReceipts NS_DESIGNATED_INITIALIZER;
 - (nullable instancetype)initWithCoder:(NSCoder *)coder NS_DESIGNATED_INITIALIZER;
 
 @end

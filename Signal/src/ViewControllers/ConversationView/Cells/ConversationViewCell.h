@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 NS_ASSUME_NONNULL_BEGIN
@@ -8,6 +8,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class ConversationViewCell;
 @class OWSContactOffersInteraction;
 @class OWSContactsManager;
+@class SignalServiceAddress;
 @class TSAttachmentStream;
 @class TSCall;
 @class TSErrorMessage;
@@ -32,14 +33,16 @@ NS_ASSUME_NONNULL_BEGIN
     didLongpressQuoteViewItem:(id<ConversationViewItem>)viewItem;
 - (void)conversationCell:(ConversationViewCell *)cell
     didLongpressSystemMessageViewItem:(id<ConversationViewItem>)viewItem;
+- (void)conversationCell:(ConversationViewCell *)cell didLongpressSticker:(id<ConversationViewItem>)viewItem;
+- (void)conversationCell:(ConversationViewCell *)cell didReplyToItem:(id<ConversationViewItem>)viewItem;
 
 #pragma mark - System Cell
 
-- (void)tappedNonBlockingIdentityChangeForRecipientId:(nullable NSString *)signalId;
+- (void)tappedNonBlockingIdentityChangeForAddress:(nullable SignalServiceAddress *)address;
 - (void)tappedInvalidIdentityKeyErrorMessage:(TSInvalidIdentityKeyErrorMessage *)errorMessage;
 - (void)tappedCorruptedMessage:(TSErrorMessage *)message;
 - (void)resendGroupUpdateForErrorMessage:(TSErrorMessage *)message;
-- (void)showFingerprintWithRecipientId:(NSString *)recipientId;
+- (void)showFingerprintWithAddress:(SignalServiceAddress *)address;
 - (void)showConversationSettings;
 - (void)handleCallTap:(TSCall *)call;
 
@@ -48,10 +51,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)tappedUnknownContactBlockOfferMessage:(OWSContactOffersInteraction *)interaction;
 - (void)tappedAddToContactsOfferMessage:(OWSContactOffersInteraction *)interaction;
 - (void)tappedAddToProfileWhitelistOfferMessage:(OWSContactOffersInteraction *)interaction;
-
-#pragma mark - Formatting
-
-- (NSAttributedString *)attributedContactOrProfileNameForPhoneIdentifier:(NSString *)recipientId;
 
 #pragma mark - Caching
 

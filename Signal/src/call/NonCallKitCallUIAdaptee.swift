@@ -34,10 +34,10 @@ class NonCallKitCallUIAdaptee: NSObject, CallUIAdaptee {
 
     // MARK: 
 
-    func startOutgoingCall(handle: String) -> SignalCall {
+    func startOutgoingCall(handle: SignalServiceAddress) -> SignalCall {
         AssertIsOnMainThread()
 
-        let call = SignalCall.outgoingCall(localId: UUID(), remotePhoneNumber: handle)
+        let call = SignalCall.outgoingCall(localId: UUID(), remoteAddress: handle)
 
         // make sure we don't terminate audio session during call
         let success = self.audioSession.startAudioActivity(call.audioActivity)
@@ -72,7 +72,7 @@ class NonCallKitCallUIAdaptee: NSObject, CallUIAdaptee {
     func answerCall(localId: UUID) {
         AssertIsOnMainThread()
 
-        guard let call = self.callService.call else {
+        guard let call = self.callService.currentCall else {
             owsFailDebug("No current call.")
             return
         }
@@ -88,7 +88,7 @@ class NonCallKitCallUIAdaptee: NSObject, CallUIAdaptee {
     func answerCall(_ call: SignalCall) {
         AssertIsOnMainThread()
 
-        guard call.localId == self.callService.call?.localId else {
+        guard call.localId == self.callService.currentCall?.localId else {
             owsFailDebug("localId does not match current call")
             return
         }
@@ -97,10 +97,16 @@ class NonCallKitCallUIAdaptee: NSObject, CallUIAdaptee {
         self.callService.handleAnswerCall(call)
     }
 
-    func declineCall(localId: UUID) {
+    func recipientAcceptedCall(_ call: SignalCall) {
         AssertIsOnMainThread()
 
-        guard let call = self.callService.call else {
+        self.audioSession.isRTCAudioEnabled = true
+    }
+
+    func localHangupCall(localId: UUID) {
+        AssertIsOnMainThread()
+
+        guard let call = self.callService.currentCall else {
             owsFailDebug("No current call.")
             return
         }
@@ -110,24 +116,7 @@ class NonCallKitCallUIAdaptee: NSObject, CallUIAdaptee {
             return
         }
 
-        self.declineCall(call)
-    }
-
-    func declineCall(_ call: SignalCall) {
-        AssertIsOnMainThread()
-
-        guard call.localId == self.callService.call?.localId else {
-            owsFailDebug("localId does not match current call")
-            return
-        }
-
-        self.callService.handleDeclineCall(call)
-    }
-
-    func recipientAcceptedCall(_ call: SignalCall) {
-        AssertIsOnMainThread()
-
-        self.audioSession.isRTCAudioEnabled = true
+        self.localHangupCall(call)
     }
 
     func localHangupCall(_ call: SignalCall) {
@@ -135,7 +124,7 @@ class NonCallKitCallUIAdaptee: NSObject, CallUIAdaptee {
 
         // If both parties hang up at the same moment,
         // call might already be nil.
-        guard self.callService.call == nil || call.localId == self.callService.call?.localId else {
+        guard self.callService.currentCall == nil || call.localId == self.callService.currentCall?.localId else {
             owsFailDebug("localId does not match current call")
             return
         }
@@ -164,7 +153,7 @@ class NonCallKitCallUIAdaptee: NSObject, CallUIAdaptee {
     func setIsMuted(call: SignalCall, isMuted: Bool) {
         AssertIsOnMainThread()
 
-        guard call.localId == self.callService.call?.localId else {
+        guard call.localId == self.callService.currentCall?.localId else {
             owsFailDebug("localId does not match current call")
             return
         }
@@ -175,7 +164,7 @@ class NonCallKitCallUIAdaptee: NSObject, CallUIAdaptee {
     func setHasLocalVideo(call: SignalCall, hasLocalVideo: Bool) {
         AssertIsOnMainThread()
 
-        guard call.localId == self.callService.call?.localId else {
+        guard call.localId == self.callService.currentCall?.localId else {
             owsFailDebug("localId does not match current call")
             return
         }

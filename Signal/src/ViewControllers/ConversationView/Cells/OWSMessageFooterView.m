@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 #import "OWSMessageFooterView.h"
@@ -86,9 +86,10 @@ NS_ASSUME_NONNULL_BEGIN
 #pragma mark - Load
 
 - (void)configureWithConversationViewItem:(id<ConversationViewItem>)viewItem
-                        isOverlayingMedia:(BOOL)isOverlayingMedia
                         conversationStyle:(ConversationStyle *)conversationStyle
                                isIncoming:(BOOL)isIncoming
+                        isOverlayingMedia:(BOOL)isOverlayingMedia
+                          isOutsideBubble:(BOOL)isOutsideBubble
 {
     OWSAssertDebug(viewItem);
     OWSAssertDebug(conversationStyle);
@@ -98,12 +99,14 @@ NS_ASSUME_NONNULL_BEGIN
     UIColor *textColor;
     if (isOverlayingMedia) {
         textColor = [UIColor whiteColor];
+    } else if (isOutsideBubble) {
+        textColor = Theme.secondaryColor;
     } else {
         textColor = [conversationStyle bubbleSecondaryTextColorWithIsIncoming:isIncoming];
     }
     self.timestampLabel.textColor = textColor;
 
-    if (viewItem.isExpiringMessage) {
+    if (viewItem.hasPerConversationExpiration) {
         TSMessage *message = (TSMessage *)viewItem.interaction;
         uint64_t expirationTimestamp = message.expiresAt;
         uint32_t expiresInSeconds = message.expiresInSeconds;
@@ -115,12 +118,14 @@ NS_ASSUME_NONNULL_BEGIN
         self.messageTimerView.hidden = YES;
     }
 
+    NSString *_Nullable accessibilityLabel;
     if (viewItem.interaction.interactionType == OWSInteractionType_OutgoingMessage) {
         TSOutgoingMessage *outgoingMessage = (TSOutgoingMessage *)viewItem.interaction;
 
         UIImage *_Nullable statusIndicatorImage = nil;
         MessageReceiptStatus messageStatus =
             [MessageRecipientStatusUtils recipientStatusWithOutgoingMessage:outgoingMessage];
+        accessibilityLabel = [MessageRecipientStatusUtils receiptMessageWithOutgoingMessage:outgoingMessage];
         switch (messageStatus) {
             case MessageReceiptStatusUploading:
             case MessageReceiptStatusSending:
@@ -150,6 +155,7 @@ NS_ASSUME_NONNULL_BEGIN
     } else {
         [self hideStatusIndicator];
     }
+    self.accessibilityLabel = accessibilityLabel;
 }
 
 - (void)showStatusIndicatorWithIcon:(UIImage *)icon textColor:(UIColor *)textColor
@@ -171,6 +177,7 @@ NS_ASSUME_NONNULL_BEGIN
     self.statusIndicatorImageView.image = nil;
     [self.statusIndicatorImageView setContentHuggingLow];
     self.spacing = 0;
+    self.accessibilityLabel = nil;
 }
 
 - (void)animateSpinningIcon
@@ -236,7 +243,7 @@ NS_ASSUME_NONNULL_BEGIN
         }
     }
 
-    if (viewItem.isExpiringMessage) {
+    if (viewItem.hasPerConversationExpiration) {
         result.width += ([OWSMessageTimerView measureSize].width + self.hSpacing);
     }
 

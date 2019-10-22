@@ -10,7 +10,7 @@ NS_SWIFT_NAME(EndSessionMessage)
 @interface OWSEndSessionMessage : TSOutgoingMessage
 
 - (instancetype)initOutgoingMessageWithTimestamp:(uint64_t)timestamp
-                                        inThread:(nullable TSThread *)thread
+                                        inThread:(TSThread *)thread
                                      messageBody:(nullable NSString *)body
                                    attachmentIds:(NSMutableArray<NSString *> *)attachmentIds
                                 expiresInSeconds:(uint32_t)expiresInSeconds
@@ -19,10 +19,12 @@ NS_SWIFT_NAME(EndSessionMessage)
                                 groupMetaMessage:(TSGroupMetaMessage)groupMetaMessage
                                    quotedMessage:(nullable TSQuotedMessage *)quotedMessage
                                     contactShare:(nullable OWSContact *)contactShare
-                                     linkPreview:(nullable OWSLinkPreview *)linkPreview NS_UNAVAILABLE;
+                                     linkPreview:(nullable OWSLinkPreview *)linkPreview
+                                  messageSticker:(nullable MessageSticker *)messageSticker
+                               isViewOnceMessage:(BOOL)isViewOnceMessage NS_UNAVAILABLE;
 
 // MJK TODO can we remove the sender timestamp?
-- (instancetype)initWithTimestamp:(uint64_t)timestamp inThread:(nullable TSThread *)thread NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithTimestamp:(uint64_t)timestamp inThread:(TSThread *)thread NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithCoder:(NSCoder *)coder NS_DESIGNATED_INITIALIZER;
 
 @end

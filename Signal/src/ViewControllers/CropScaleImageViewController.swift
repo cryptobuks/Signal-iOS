@@ -184,7 +184,7 @@ import SignalMessaging
             path.usesEvenOddFillRule = true
 
             layer.path = path.cgPath
-            layer.fillRule = kCAFillRuleEvenOdd
+            layer.fillRule = .evenOdd
             layer.fillColor = UIColor.black.cgColor
             layer.opacity = 0.7
         }
@@ -341,7 +341,7 @@ import SignalMessaging
     var lastPinchScale: CGFloat = 1.0
 
     @objc func handlePinch(sender: UIPinchGestureRecognizer) {
-        switch (sender.state) {
+        switch sender.state {
         case .possible:
             break
         case .began:
@@ -390,6 +390,11 @@ import SignalMessaging
             srcTranslation = srcTranslationAtPinchStart
             imageScale = imageScaleAtPinchStart
             break
+        @unknown default:
+            owsFailDebug("Unexpected enum value.")
+            srcTranslation = srcTranslationAtPinchStart
+            imageScale = imageScaleAtPinchStart
+            break
         }
 
         updateImageLayout()
@@ -398,7 +403,7 @@ import SignalMessaging
     var srcTranslationAtPanStart: CGPoint = CGPoint.zero
 
     @objc func handlePan(sender: UIPanGestureRecognizer) {
-        switch (sender.state) {
+        switch sender.state {
         case .possible:
             break
         case .began:
@@ -419,6 +424,11 @@ import SignalMessaging
                                      y: srcTranslationAtPanStart.y + gestureTranslation.y * -viewToSrcRatio)
             break
         case .cancelled, .failed:
+            srcTranslation
+                = srcTranslationAtPanStart
+            break
+        @unknown default:
+            owsFailDebug("Unexpected enum value.")
             srcTranslation
                 = srcTranslationAtPanStart
             break

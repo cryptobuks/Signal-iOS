@@ -154,15 +154,15 @@ public class SignalAttachment: NSObject {
     @objc
     public var isConvertibleToContactShare = false
 
+    // This flag should be set for attachments that should be sent as view-once messages.
+    @objc
+    public var isViewOnceAttachment = false
+
     // Attachment types are identified using UTIs.
     //
     // See: https://developer.apple.com/library/content/documentation/Miscellaneous/Reference/UTIRef/Articles/System-DeclaredUniformTypeIdentifiers.html
     @objc
     public let dataUTI: String
-
-    // Can be used by views to link this SignalAttachment with an Photos framework asset.
-    @objc
-    public var assetId: String?
 
     var error: SignalAttachmentError? {
         didSet {
@@ -193,12 +193,7 @@ public class SignalAttachment: NSObject {
     // MARK: 
 
     @objc
-    public static let isMultiSendEnabled = true
-
-    @objc
-    public static var maxAttachmentsAllowed: Int {
-        return isMultiSendEnabled ? 32 : 1
-    }
+    public static let maxAttachmentsAllowed: Int = 32
 
     // MARK: Constructor
 
@@ -253,9 +248,23 @@ public class SignalAttachment: NSObject {
         return errorDescription
     }
 
+    public func cloneAttachment() throws -> SignalAttachment {
+        let sourceUrl = dataUrl!
+        let newUrl = OWSFileSystem.temporaryFileUrl(fileExtension: sourceUrl.pathExtension)
+        try FileManager.default.copyItem(at: sourceUrl, to: newUrl)
+
+        let clonedDataSource = try DataSourcePath.dataSource(with: newUrl,
+                                                             shouldDeleteOnDeallocation: true)
+        clonedDataSource.sourceFilename = sourceFilename
+
+        let attachment = SignalAttachment(dataSource: clonedDataSource, dataUTI: self.dataUTI)
+        attachment.captionText = self.captionText
+
+        return attachment
+    }
+
     @objc
     public func buildOutgoingAttachmentInfo(message: TSMessage) -> OutgoingAttachmentInfo {
-        assert(message.uniqueId != nil)
         return OutgoingAttachmentInfo(dataSource: dataSource,
                                       contentType: mimeType,
                                       sourceFilename: filenameOrDefault,
@@ -310,7 +319,7 @@ public class SignalAttachment: NSObject {
             let asset = AVURLAsset(url: mediaUrl)
             let generator = AVAssetImageGenerator(asset: asset)
             generator.appliesPreferredTrackTransform = true
-            let cgImage = try generator.copyCGImage(at: CMTimeMake(0, 1), actualTime: nil)
+            let cgImage = try generator.copyCGImage(at: CMTimeMake(value: 0, timescale: 1), actualTime: nil)
             let image = UIImage(cgImage: cgImage)
 
             cachedVideoPreview = image
@@ -501,7 +510,10 @@ public class SignalAttachment: NSObject {
         guard let pasteboardUTITypes = UIPasteboard.general.types(forItemSet: itemSet) else {
             return false
         }
-        let pasteboardUTISet = Set<String>(pasteboardUTITypes[0])
+        let pasteboardUTISet = Set<String>(filterDynamicUTITypes(pasteboardUTITypes[0]))
+        guard pasteboardUTISet.count > 0 else {
+            return false
+        }
 
         // The pasteboard can be populated with multiple UTI types
         // with different payloads.  iMessage for example will copy
@@ -536,6 +548,15 @@ public class SignalAttachment: NSObject {
         return hasTextUTIType
     }
 
+    // Discard "dynamic" UTI types since our attachment pipeline
+    // requires "standard" UTI types to work properly, e.g. when
+    // mapping between UTI type, MIME type and file extension.
+    private class func filterDynamicUTITypes(_ types: [String]) -> [String] {
+        return types.filter {
+            !$0.hasPrefix("dyn")
+        }
+    }
+
     // Returns an attachment from the pasteboard, or nil if no attachment
     // can be found.
     //
@@ -551,7 +572,11 @@ public class SignalAttachment: NSObject {
         guard let pasteboardUTITypes = UIPasteboard.general.types(forItemSet: itemSet) else {
             return nil
         }
-        let pasteboardUTISet = Set<String>(pasteboardUTITypes[0])
+
+        let pasteboardUTISet = Set<String>(filterDynamicUTITypes(pasteboardUTITypes[0]))
+        guard pasteboardUTISet.count > 0 else {
+            return nil
+        }
         for dataUTI in inputImageUTISet {
             if pasteboardUTISet.contains(dataUTI) {
                 guard let data = dataForFirstPasteboardItem(dataUTI: dataUTI) else {
@@ -601,11 +626,7 @@ public class SignalAttachment: NSObject {
             owsFailDebug("Missing expected pasteboard data for UTI: \(dataUTI)")
             return nil
         }
-        guard datas.count > 0 else {
-            owsFailDebug("Missing expected pasteboard data for UTI: \(dataUTI)")
-            return nil
-        }
-        guard let data = datas[0] as? Data else {
+        guard let data = datas.first else {
             owsFailDebug("Missing expected pasteboard data for UTI: \(dataUTI)")
             return nil
         }
@@ -756,8 +777,7 @@ public class SignalAttachment: NSObject {
                 }
                 dstImage = resizedImage
             }
-            guard let jpgImageData = UIImageJPEGRepresentation(dstImage,
-                                                               jpegCompressionQuality(imageUploadQuality: imageUploadQuality)) else {
+            guard let jpgImageData = dstImage.jpegData(compressionQuality: jpegCompressionQuality(imageUploadQuality: imageUploadQuality)) else {
                                                                 attachment.error = .couldNotConvertToJpeg
                                                                 return attachment
             }
@@ -1019,19 +1039,20 @@ public class SignalAttachment: NSObject {
             let baseFilename = dataSource.sourceFilename
             let mp4Filename = baseFilename?.filenameWithoutExtension.appendingFileExtension("mp4")
 
-            guard let dataSource = DataSourcePath.dataSource(with: exportURL,
-                                                             shouldDeleteOnDeallocation: true) else {
+            do {
+                let dataSource = try DataSourcePath.dataSource(with: exportURL,
+                                                               shouldDeleteOnDeallocation: true)
+                dataSource.sourceFilename = mp4Filename
+
+                let attachment = SignalAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)
+                resolver.fulfill(attachment)
+            } catch {
                 owsFailDebug("Failed to build data source for exported video URL")
                 let attachment = SignalAttachment(dataSource: DataSourceValue.emptyDataSource(), dataUTI: dataUTI)
                 attachment.error = .couldNotConvertToMpeg4
                 resolver.fulfill(attachment)
                 return
             }
-
-            dataSource.sourceFilename = mp4Filename
-
-            let attachment = SignalAttachment(dataSource: dataSource, dataUTI: kUTTypeMPEG4 as String)
-            resolver.fulfill(attachment)
         }
 
         return (promise, exportSession)

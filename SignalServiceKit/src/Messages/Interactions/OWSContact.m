@@ -5,16 +5,14 @@
 #import "OWSContact.h"
 #import "Contact.h"
 #import "MimeTypeUtil.h"
-#import "NSString+SSK.h"
 #import "OWSContact+Private.h"
 #import "PhoneNumber.h"
 #import "TSAttachment.h"
 #import "TSAttachmentPointer.h"
 #import "TSAttachmentStream.h"
+#import <Contacts/Contacts.h>
+#import <SignalCoreKit/NSString+OWS.h>
 #import <SignalServiceKit/SignalServiceKit-Swift.h>
-#import <YapDatabase/YapDatabaseTransaction.h>
-
-@import Contacts;
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -484,12 +482,15 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 
 #pragma mark - Avatar
 
-- (nullable TSAttachment *)avatarAttachmentWithTransaction:(YapDatabaseReadTransaction *)transaction
+- (nullable TSAttachment *)avatarAttachmentWithTransaction:(SDSAnyReadTransaction *)transaction
 {
-    return [TSAttachment fetchObjectWithUniqueID:self.avatarAttachmentId transaction:transaction];
+    if (self.avatarAttachmentId == nil) {
+        return nil;
+    }
+    return [TSAttachment anyFetchWithUniqueId:self.avatarAttachmentId transaction:transaction];
 }
 
-- (void)saveAvatarImage:(UIImage *)image transaction:(YapDatabaseReadWriteTransaction *)transaction
+- (void)saveAvatarImage:(UIImage *)image transaction:(SDSAnyWriteTransaction *)transaction
 {
     NSData *imageData = UIImageJPEGRepresentation(image, (CGFloat)0.9);
 
@@ -497,21 +498,22 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
                                                                                  byteCount:(UInt32)imageData.length
                                                                             sourceFilename:nil
                                                                                    caption:nil
-                                                                            albumMessageId:nil];
+                                                                            albumMessageId:nil
+                                                                         shouldAlwaysPad:NO];
 
     NSError *error;
     BOOL success = [attachmentStream writeData:imageData error:&error];
     OWSAssertDebug(success && !error);
 
-    [attachmentStream saveWithTransaction:transaction];
+    [attachmentStream anyInsertWithTransaction:transaction];
     self.avatarAttachmentId = attachmentStream.uniqueId;
 }
 
-- (void)removeAvatarAttachmentWithTransaction:(YapDatabaseReadWriteTransaction *)transaction
+- (void)removeAvatarAttachmentWithTransaction:(SDSAnyWriteTransaction *)transaction
 {
     TSAttachment *_Nullable attachment =
-        [TSAttachment fetchObjectWithUniqueID:self.avatarAttachmentId transaction:transaction];
-    [attachment removeWithTransaction:transaction];
+        [TSAttachment anyFetchWithUniqueId:self.avatarAttachmentId transaction:transaction];
+    [attachment anyRemoveWithTransaction:transaction];
 }
 
 #pragma mark - Phone Numbers and Recipient IDs
@@ -534,7 +536,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
     return [self.e164PhoneNumbers
         filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *_Nullable recipientId,
                                         NSDictionary<NSString *, id> *_Nullable bindings) {
-            return [contactsManager isSystemContact:recipientId];
+            return [contactsManager isSystemContactWithPhoneNumber:recipientId];
         }]];
 }
 
@@ -768,6 +770,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 #pragma mark - Proto Serialization
 
 + (nullable SSKProtoDataMessageContact *)protoForContact:(OWSContact *)contact
+                                             transaction:(SDSAnyReadTransaction *)transaction
 {
     OWSAssertDebug(contact);
 
@@ -897,7 +900,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 
     if (contact.avatarAttachmentId) {
         SSKProtoAttachmentPointer *_Nullable attachmentProto =
-            [TSAttachmentStream buildProtoForAttachmentId:contact.avatarAttachmentId];
+            [TSAttachmentStream buildProtoForAttachmentId:contact.avatarAttachmentId transaction:transaction];
         if (!attachmentProto) {
             OWSLogError(@"could not build protobuf: %@", error);
         } else {
@@ -925,7 +928,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
 }
 
 + (nullable OWSContact *)contactForDataMessage:(SSKProtoDataMessage *)dataMessage
-                                   transaction:(YapDatabaseReadWriteTransaction *)transaction
+                                   transaction:(SDSAnyWriteTransaction *)transaction
 {
     OWSAssertDebug(dataMessage);
 
@@ -1002,7 +1005,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
             TSAttachmentPointer *_Nullable attachmentPointer =
                 [TSAttachmentPointer attachmentPointerFromProto:avatarAttachment albumMessage:nil];
             if (attachmentPointer) {
-                [attachmentPointer saveWithTransaction:transaction];
+                [attachmentPointer anyInsertWithTransaction:transaction];
                 contact.avatarAttachmentId = attachmentPointer.uniqueId;
                 contact.isProfileAvatar = avatarInfo.isProfile;
             } else {
@@ -1023,7 +1026,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
     OWSContactPhoneNumber *result = [OWSContactPhoneNumber new];
     result.phoneType = OWSContactPhoneType_Custom;
     if (phoneNumberProto.hasType) {
-        switch (phoneNumberProto.type) {
+        switch (phoneNumberProto.unwrappedType) {
             case SSKProtoDataMessageContactPhoneTypeHome:
                 result.phoneType = OWSContactPhoneType_Home;
                 break;
@@ -1053,7 +1056,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
     OWSContactEmail *result = [OWSContactEmail new];
     result.emailType = OWSContactEmailType_Custom;
     if (emailProto.hasType) {
-        switch (emailProto.type) {
+        switch (emailProto.unwrappedType) {
             case SSKProtoDataMessageContactEmailTypeHome:
                 result.emailType = OWSContactEmailType_Home;
                 break;
@@ -1083,7 +1086,7 @@ NSString *NSStringForContactAddressType(OWSContactAddressType value)
     OWSContactAddress *result = [OWSContactAddress new];
     result.addressType = OWSContactAddressType_Custom;
     if (addressProto.hasType) {
-        switch (addressProto.type) {
+        switch (addressProto.unwrappedType) {
             case SSKProtoDataMessageContactPostalAddressTypeHome:
                 result.addressType = OWSContactAddressType_Home;
                 break;

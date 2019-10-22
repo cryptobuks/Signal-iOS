@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 #import <SignalMessaging/OWSViewController.h>
@@ -13,6 +13,7 @@ typedef NS_ENUM(NSUInteger, ConversationViewAction) {
     ConversationViewActionVideoCall,
 };
 
+@class TSInteraction;
 @class TSThread;
 
 @interface ConversationViewController : OWSViewController
@@ -25,10 +26,26 @@ typedef NS_ENUM(NSUInteger, ConversationViewAction) {
 
 - (void)popKeyBoard;
 
+- (void)scrollToFirstUnreadMessage:(BOOL)isAnimated;
+
 #pragma mark 3D Touch Methods
 
 - (void)peekSetup;
 - (void)popped;
+
+@end
+
+#pragma mark - Internal Methods. Used in extensions
+
+@class ConversationCollectionView;
+@class ConversationViewModel;
+@class SDSDatabaseStorage;
+
+@interface ConversationViewController (Internal)
+
+@property (nonatomic, readonly) ConversationCollectionView *collectionView;
+@property (nonatomic, readonly) ConversationViewModel *conversationViewModel;
+@property (nonatomic, readonly) SDSDatabaseStorage *databaseStorage;
 
 @end
 

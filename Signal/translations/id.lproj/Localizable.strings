@@ -4,6 +4,27 @@
 /* Action sheet item */
 "ACCEPT_NEW_IDENTITY_ACTION" = "Terima Nomor Keamanan Baru";
 
+/* Accessibility label for attachment. */
+"ACCESSIBILITY_LABEL_ATTACHMENT" = "Lampiran";
+
+/* Accessibility label for audio. */
+"ACCESSIBILITY_LABEL_AUDIO" = "Audio";
+
+/* Accessibility label for contact. */
+"ACCESSIBILITY_LABEL_CONTACT" = "Kontak";
+
+/* Accessibility label for media. */
+"ACCESSIBILITY_LABEL_MEDIA" = "Media";
+
+/* Accessibility label for message. */
+"ACCESSIBILITY_LABEL_MESSAGE" = "Pesan";
+
+/* Accessibility label for messages sent by you. */
+"ACCESSIBILITY_LABEL_SENDER_SELF" = "Anda";
+
+/* Accessibility label for stickers. */
+"ACCESSIBILITY_LABEL_STICKER" = "Sticker";
+
 /* Label for 'audio call' button in contact view. */
 "ACTION_AUDIO_CALL" = "Panggilan Signal";
 
@@ -19,18 +40,6 @@
 
 /* Label for 'video call' button in contact view. */
 "ACTION_VIDEO_CALL" = "Panggilan Video";
-
-/* A label for the 'add by phone number' button in the 'add group member' view */
-"ADD_GROUP_MEMBER_VIEW_BUTTON" = "Tambahkan";
-
-/* Title for the 'add contact' section of the 'add group member' view. */
-"ADD_GROUP_MEMBER_VIEW_CONTACT_TITLE" = "Tambah Kontak";
-
-/* Title for the 'add by phone number' section of the 'add group member' view. */
-"ADD_GROUP_MEMBER_VIEW_PHONE_NUMBER_TITLE" = "Masukkan melalui Nomor Telepon";
-
-/* Title for the 'add group member' view. */
-"ADD_GROUP_MEMBER_VIEW_TITLE" = "Tambahkan anggota";
 
 /* Message shown in conversation view that offers to share your profile with a group. */
 "ADD_GROUP_TO_PROFILE_WHITELIST_OFFER" = "Apakah Anda ingin membagikan profil Anda pada group ini?";
@@ -65,6 +74,15 @@
 /* Title for the 'app launch failed' alert. */
 "APP_LAUNCH_FAILURE_ALERT_TITLE" = "Galat";
 
+/* Error indicating that the app could not launch because the database could not be loaded. */
+"APP_LAUNCH_FAILURE_COULD_NOT_LOAD_DATABASE" = "Could Not Load Database";
+
+/* Error indicating that the app could not launch without reverting unknown database migrations. */
+"APP_LAUNCH_FAILURE_INVALID_DATABASE_VERSION_MESSAGE" = "Please upgrade to the latest version of Signal.";
+
+/* Error indicating that the app could not launch without reverting unknown database migrations. */
+"APP_LAUNCH_FAILURE_INVALID_DATABASE_VERSION_TITLE" = "Unknown Database Version.";
+
 /* Text prompting user to edit their profile name. */
 "APP_SETTINGS_EDIT_PROFILE_NAME_PROMPT" = "Masukkan nama Anda";
 
@@ -79,6 +97,15 @@
 
 /* Label for the 'update' button in the 'new app version available' alert. */
 "APP_UPDATE_NAG_ALERT_UPDATE_BUTTON" = "Pembaruan";
+
+/* Name indicating that the dark theme is enabled. */
+"APPEARANCE_SETTINGS_DARK_THEME_NAME" = "Gelap";
+
+/* Name indicating that the light theme is enabled. */
+"APPEARANCE_SETTINGS_LIGHT_THEME_NAME" = "Terang";
+
+/* Name indicating that the system theme is enabled. */
+"APPEARANCE_SETTINGS_SYSTEM_THEME_NAME" = "System";
 
 /* Name of application */
 "APPLICATION_NAME" = "Signal";
@@ -95,14 +122,20 @@
 /* placeholder text for an empty captioning field */
 "ATTACHMENT_APPROVAL_CAPTION_PLACEHOLDER" = "Add a caption…";
 
+/* Title for 'caption' mode of the attachment approval view. */
+"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "Caption";
+
+/* alert text when Signal was unable to save a copy of the attachment to the system photo library */
+"ATTACHMENT_APPROVAL_FAILED_TO_SAVE" = "Failed to Save";
+
 /* Format string for file extension label in call interstitial view */
 "ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Tipe Berkas: %@";
 
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
 "ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Ukuran: %@";
 
-/* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Batas pesan tercapai.";
+/* toast alert shown after user taps the 'save' button */
+"ATTACHMENT_APPROVAL_MEDIA_DID_SAVE" = "Tersimpan";
 
 /* Label for 'send' button in the 'attachment approval' dialog. */
 "ATTACHMENT_APPROVAL_SEND_BUTTON" = "Kirim";
@@ -112,12 +145,6 @@
 
 /* Status label when an attachment download has failed. */
 "ATTACHMENT_DOWNLOADING_STATUS_FAILED" = "Download failed. Tap to retry.";
-
-/* Status label when an attachment is currently downloading */
-"ATTACHMENT_DOWNLOADING_STATUS_IN_PROGRESS" = "Mengunduh...";
-
-/* Status label when an attachment is enqueued, but hasn't yet started downloading */
-"ATTACHMENT_DOWNLOADING_STATUS_QUEUED" = "Antrian";
 
 /* The title of the 'attachment error' alert. */
 "ATTACHMENT_ERROR_ALERT_TITLE" = "Gagal Mengirim Lampiran";
@@ -150,13 +177,31 @@
 "ATTACHMENT_ERROR_MISSING_DATA" = "Lampiran kosong.";
 
 /* Accessibility hint describing what you can do with the attachment button */
-"ATTACHMENT_HINT" = "Pilih atau ambil gambar dan kirim";
+"ATTACHMENT_HINT" = "Choose Media to Send";
+
+/* A button to open the camera from the Attachment Keyboard */
+"ATTACHMENT_KEYBOARD_CAMERA" = "Kamera";
+
+/* A button to select a contact from the Attachment Keyboard */
+"ATTACHMENT_KEYBOARD_CONTACT" = "Kontak";
+
+/* A button to select a file from the Attachment Keyboard */
+"ATTACHMENT_KEYBOARD_FILE" = "Berkas";
+
+/* A button to select a GIF from the Attachment Keyboard */
+"ATTACHMENT_KEYBOARD_GIF" = "GIF";
+
+/* A button to select a location from the Attachment Keyboard */
+"ATTACHMENT_KEYBOARD_LOCATION" = "Lokasi";
+
+/* A string indicating to the user that they'll be able to send photos from this view once they enable photo access. */
+"ATTACHMENT_KEYBOARD_NO_PHOTO_ACCESS" = "Grant access to your photos in settings to send them here.";
+
+/* A string indicating to the user that once they take photos, they'll be able to send them from this view. */
+"ATTACHMENT_KEYBOARD_NO_PHOTOS" = "Once you’ve taken photos, you’ll be able to send your recents here.";
 
 /* Accessibility label for attaching photos */
 "ATTACHMENT_LABEL" = "Lampiran";
-
-/* attachment menu option to send contact */
-"ATTACHMENT_MENU_CONTACT_BUTTON" = "Kontak";
 
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Gagal memilih dokumen.";
@@ -170,10 +215,13 @@
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
 "ATTACHMENT_TYPE_VOICE_MESSAGE" = "Pesan Suara";
 
+/* A string indicating that an audio message is playing. */
+"AUDIO_ACTIVITY_PLAYBACK_NAME_AUDIO_MESSAGE" = "Audio Message";
+
 /* action sheet button title to enable built in speaker during a call */
 "AUDIO_ROUTE_BUILT_IN_SPEAKER" = "Pengeras Suara";
 
-/* button text for back button */
+/* return to the previous screen */
 "BACK_BUTTON" = "Kembali";
 
 /* Error indicating the backup export could not export the user's data. */
@@ -302,14 +350,17 @@
 /* Label for generic done button. */
 "BUTTON_DONE" = "Selesai";
 
-/* Label for redo button. */
-"BUTTON_REDO" = "mengulang";
+/* Label for the 'next' button. */
+"BUTTON_NEXT" = "Berikutnya";
+
+/* Label for the 'okay' button. */
+"BUTTON_OKAY" = "Okay";
 
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "Pilih";
 
-/* Label for undo button. */
-"BUTTON_UNDO" = "Kembali";
+/* Label for the 'submit' button. */
+"BUTTON_SUBMIT" = "Kirim";
 
 /* Label for button that lets users call a contact again. */
 "CALL_AGAIN_BUTTON_TITLE" = "Telepon lagi";
@@ -356,6 +407,9 @@
 /* Accessibility label for declining incoming calls */
 "CALL_VIEW_DECLINE_INCOMING_CALL_LABEL" = "Tolak panggilan masuk";
 
+/* tooltip label when remote party has enabled their video */
+"CALL_VIEW_ENABLE_VIDEO_HINT" = "Tap here to turn on your video";
+
 /* Accessibility label for hang up call */
 "CALL_VIEW_HANGUP_LABEL" = "Akhiri panggilan";
 
@@ -391,6 +445,12 @@
 
 /* The generic name used for calls if CallKit privacy is enabled */
 "CALLKIT_ANONYMOUS_CONTACT_NAME" = "Penguna jaringan";
+
+/* Accessibility hint describing what you can do with the camera button */
+"CAMERA_BUTTON_HINT" = "Take a picture and then send it";
+
+/* Accessibility label for camera button. */
+"CAMERA_BUTTON_LABEL" = "Kamera";
 
 /* Message for alert explaining that a user cannot be verified. */
 "CANT_VERIFY_IDENTITY_ALERT_MESSAGE" = "Penguna ini tidak bisa diverifikasi sampai Anda menggantikan pesan dengan mereka.";
@@ -440,8 +500,11 @@
 /* Table section header for group listing when composing a new message */
 "COMPOSE_MESSAGE_GROUP_SECTION_TITLE" = "Grup";
 
-/* Table section header for invite listing when composing a new message */
-"COMPOSE_MESSAGE_INVITE_SECTION_TITLE" = "Undang";
+/* Table section header for phone number search when composing a new message */
+"COMPOSE_MESSAGE_PHONE_NUMBER_SEARCH_SECTION_TITLE" = "Phone number search";
+
+/* Table section header for username search when composing a new message */
+"COMPOSE_MESSAGE_USERNAME_SEARCH_SECTION_TITLE" = "Username search";
 
 /* Multi-line label explaining why compose-screen contact picker is empty. */
 "COMPOSE_SCREEN_MISSING_CONTACTS_PERMISSION" = "You can enable contacts access in the iOS Settings app to see which of your contacts are Signal users.";
@@ -467,13 +530,13 @@
 /* Action sheet title presented when a user's SN has recently changed. Embeds {{contact's name or phone number}} */
 "CONFIRM_SENDING_TO_CHANGED_IDENTITY_TITLE_FORMAT" = "nomor pengaman dengan 1%@ sudah diganti";
 
-/* Generic button text to proceed with an action */
+/* No comment provided by engineer. */
 "CONFIRMATION_TITLE" = "Konfirmasi";
 
 /* Label for a contact's postal address. */
 "CONTACT_ADDRESS" = "Alamat";
 
-/* An indicator that a contact has been blocked. */
+/* An indicator that a contact or group has been blocked. */
 "CONTACT_CELL_IS_BLOCKED" = "Blokir";
 
 /* An indicator that a contact is no longer verified. */
@@ -566,6 +629,30 @@
 /* Title for the 'conversation delete confirmation' alert. */
 "CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE" = "Delete Conversation?";
 
+/* Momentarily shown to the user when attempting to select more conversations than is allowed. Embeds {{max number of conversations}} that can be selected. */
+"CONVERSATION_PICKER_CAN_SELECT_NO_MORE_CONVERSATIONS" = "You can't select more than %@ conversations.";
+
+/* table section header for section containing groups */
+"CONVERSATION_PICKER_SECTION_GROUPS" = "Grup";
+
+/* table section header for section containing recent conversations */
+"CONVERSATION_PICKER_SECTION_RECENTS" = "Percakapan Lainnya";
+
+/* table section header for section containing contacts */
+"CONVERSATION_PICKER_SECTION_SIGNAL_CONTACTS" = "People";
+
+/* navbar header */
+"CONVERSATION_PICKER_TITLE" = "Choose Recipients";
+
+/* keyboard toolbar label when no messages match the search string */
+"CONVERSATION_SEARCH_NO_RESULTS" = "No matches";
+
+/* keyboard toolbar label when exactly 1 message matches the search string */
+"CONVERSATION_SEARCH_ONE_RESULT" = "1 match";
+
+/* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
+"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d of %d matches";
+
 /* title for conversation settings screen */
 "CONVERSATION_SETTINGS" = "Setelan Percakapan";
 
@@ -617,11 +704,17 @@
 /* Label for 'new contact' button in conversation settings view. */
 "CONVERSATION_SETTINGS_NEW_CONTACT" = "Buat Kontak Baru";
 
+/* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
+"CONVERSATION_SETTINGS_SEARCH" = "Search Conversation";
+
 /* Label for button that opens conversation settings. */
 "CONVERSATION_SETTINGS_TAP_TO_CHANGE" = "Ketuk untuk mengubah";
 
 /* Label for button to unmute a thread. */
 "CONVERSATION_SETTINGS_UNMUTE_ACTION" = "Tidak Senyap";
+
+/* Indicates that user is in the system contacts list. */
+"CONVERSATION_SETTINGS_VIEW_IS_SYSTEM_CONTACT" = "This user is in your contacts";
 
 /* Indicates that user's profile has been shared with a group. */
 "CONVERSATION_SETTINGS_VIEW_PROFILE_IS_SHARED_WITH_GROUP" = "Grup ini dapat melihat profil Anda.";
@@ -661,9 +754,6 @@
 
 /* No comment provided by engineer. */
 "COUNTRYCODE_SELECT_TITLE" = "Pilih Kode Negara";
-
-/* Accessibility label for the create group new group button */
-"CREATE_NEW_GROUP" = "Buat grup baru";
 
 /* Title for the 'crop/scale image' dialog. */
 "CROP_SCALE_IMAGE_VIEW_TITLE" = "Pindahkan dan Ubah Skala";
@@ -712,9 +802,6 @@
 
 /* Label for the 'email debug log' option of the debug log alert. */
 "DEBUG_LOG_ALERT_OPTION_EMAIL" = "Hubungi Layanan Bantuan";
-
-/* Label for the 'send to last thread' option of the debug log alert. */
-"DEBUG_LOG_ALERT_OPTION_SEND_TO_LAST_THREAD" = "Kirim ke Utas Terakhir";
 
 /* Label for the 'send to self' option of the debug log alert. */
 "DEBUG_LOG_ALERT_OPTION_SEND_TO_SELF" = "Kirim ke Diri Sendiri";
@@ -786,12 +873,6 @@
 /* The navbar title for the 'update group' view. */
 "EDIT_GROUP_DEFAULT_TITLE" = "Ubah Grup";
 
-/* Label for the cell that lets you add a new member to a group. */
-"EDIT_GROUP_MEMBERS_ADD_MEMBER" = "Tambahkan...";
-
-/* a title for the members section of the 'new/update group' view. */
-"EDIT_GROUP_MEMBERS_SECTION_TITLE" = "Anggota";
-
 /* An indicator that a user is a new member of the group. */
 "EDIT_GROUP_NEW_MEMBER_LABEL" = "Ditambahkan";
 
@@ -816,29 +897,11 @@
 /* subject of email sent to contacts when inviting to install Signal */
 "EMAIL_INVITE_SUBJECT" = "Pindah ke Signal";
 
-/* Body text an existing user sees when viewing an empty archive */
-"EMPTY_ARCHIVE_TEXT" = "You can archive inactive conversations from your Inbox.";
-
-/* Header text an existing user sees when viewing an empty archive */
-"EMPTY_ARCHIVE_TITLE" = "Clean Up Your Conversation List";
-
 /* Full width label displayed when attempting to compose message */
 "EMPTY_CONTACTS_LABEL_LINE1" = "Tak satupun kontak Anda memiliki Signal";
 
 /* Full width label displayed when attempting to compose message */
 "EMPTY_CONTACTS_LABEL_LINE2" = "Mengapa Anda tidak mengundang seseorang?";
-
-/* Body text a new user sees when viewing an empty inbox */
-"EMPTY_INBOX_NEW_USER_TEXT" = "Ketuk pada tombol menyusun";
-
-/* Header text a new user sees when viewing an empty inbox */
-"EMPTY_INBOX_NEW_USER_TITLE" = "Mulai percakapan Signal pertama Anda!";
-
-/* Body text an existing user sees when viewing an empty inbox */
-"EMPTY_INBOX_TEXT" = "None. Zip. Zilch. Nada.";
-
-/* Header text an existing user sees when viewing an empty inbox */
-"EMPTY_INBOX_TITLE" = "Inbox Zero";
 
 /* Indicates that user should confirm their 'two factor auth pin'. */
 "ENABLE_2FA_VIEW_CONFIRM_PIN_INSTRUCTIONS" = "Konfirmasi PIN Anda.";
@@ -861,6 +924,12 @@
 /* Error indicating that the entered 'two-factor auth PINs' do not match. */
 "ENABLE_2FA_VIEW_PIN_DOES_NOT_MATCH" = "PIN tidak sesuai.";
 
+/* Error indicating that the entered 'two-factor auth PIN' is too long. */
+"ENABLE_2FA_VIEW_PIN_TOO_LONG" = "PIN can be no longer than 20 digits.";
+
+/* Error indicating that the entered 'two-factor auth PIN' is too short. */
+"ENABLE_2FA_VIEW_PIN_TOO_SHORT" = "PIN must be at least 4 digits.";
+
 /* Indicates that user should select a 'two factor auth pin'. */
 "ENABLE_2FA_VIEW_SELECT_PIN_INSTRUCTIONS" = "Masukkan PIN Kunci Pendaftaran. Anda akan diminta untuk memasukkan lagi PIN ini ketika Anda mendaftarkan nomor telpon dengan Signal.";
 
@@ -879,6 +948,9 @@
 /* Call setup status label */
 "END_CALL_UNCATEGORIZED_FAILURE" = "Panggilan Gagal.";
 
+/* Label indicating that this OS version is no longer supported. */
+"END_OF_LIFE_OS_WARNING" = "The latest Signal features won’t work on this version of iOS. Please upgrade this device to receive future Signal updates.";
+
 /* Error indicating that the phone's contacts could not be retrieved. */
 "ERROR_COULD_NOT_FETCH_CONTACTS" = "Tidak dapat mengakses kontak.";
 
@@ -890,9 +962,6 @@
 
 /* Error message indicating that message send failed due to block list */
 "ERROR_DESCRIPTION_MESSAGE_SEND_FAILED_DUE_TO_BLOCK_LIST" = "Gagal mengirim pesan ke pengguna karena Anda memblokir mereka.";
-
-/* Error message indicating that message send failed due to failed attachment write */
-"ERROR_DESCRIPTION_MESSAGE_SEND_FAILED_DUE_TO_FAILED_ATTACHMENT_WRITE" = "Failed to write and send attachment.";
 
 /* Generic error used whenever Signal can't contact the server */
 "ERROR_DESCRIPTION_NO_INTERNET" = "Signal was unable to connect to the internet. Please try again.";
@@ -920,6 +989,9 @@
 
 /* Error message when attempting to send message */
 "ERROR_DESCRIPTION_UNREGISTERED_RECIPIENT" = "Kontak bukan pengguna Signal.";
+
+/* Error message indicating that attachment download(s) failed. */
+"ERROR_MESSAGE_ATTACHMENT_DOWNLOAD_FAILED" = "Attachment download failed.";
 
 /* Error message when unable to receive an attachment because the sending client is too old. */
 "ERROR_MESSAGE_ATTACHMENT_FROM_OLD_CLIENT" = "Attachment failure: Ask this contact to send their message again after updating to the latest version of Signal.";
@@ -951,11 +1023,26 @@
 /* No comment provided by engineer. */
 "ERROR_MESSAGE_WRONG_TRUSTED_IDENTITY_KEY" = "Nomor keamanan diubah";
 
+/* Error indicating a send failure due to an expired application. */
+"ERROR_SENDING_EXPIRED" = "Your version of Signal has expired. Please update to send further messages.";
+
 /* Format string for 'unregistered user' error. Embeds {{the unregistered user's name or signal id}}. */
 "ERROR_UNREGISTERED_USER_FORMAT" = "Pengguna tidak terdaftar: %@";
 
 /* Button to dismiss/ignore the one time splash screen that appears after upgrading */
 "EXPERIENCE_UPGRADE_DISMISS_BUTTON" = "Tidak Sekarang";
+
+/* Button to dismiss/ignore the one time splash screen that appears after upgrading */
+"EXPERIENCE_UPGRADE_LETS_GO_BUTTON" = "Let's Go";
+
+/* Label notifying the user that the app has expired. */
+"EXPIRATION_ERROR" = "Your version of Signal has expired! Messages will no longer send successfully. Tap to update to the most recent version.";
+
+/* Label warning the user that the app will expire soon. */
+"EXPIRATION_WARNING_SOON" = "Versi Signal Anda akan berakhir dalam %d hari. Ketuk untuk memperbarui versi terbaru.";
+
+/* Label warning the user that the app will expire today. */
+"EXPIRATION_WARNING_TODAY" = "Versi Signal Anda akan berakhir hari ini. Ketuk untuk memperbarui versi terbaru.";
 
 /* action sheet header when re-sending message which failed because of too many attempts */
 "FAILED_SENDING_BECAUSE_RATE_LIMIT" = "Too many failures with this contact. Please try again later.";
@@ -1071,6 +1158,21 @@
 /* Placeholder text for search bar which filters conversations. */
 "HOME_VIEW_CONVERSATION_SEARCHBAR_PLACEHOLDER" = "Pencarian";
 
+/* Format string for a label offering to start a new conversation with your contacts, if you have 1 Signal contact.  Embeds {{The name of 1 of your Signal contacts}}. */
+"HOME_VIEW_FIRST_CONVERSATION_OFFER_1_CONTACT_FORMAT" = "Some of your contacts are already on Signal, including %@.";
+
+/* Format string for a label offering to start a new conversation with your contacts, if you have 2 Signal contacts.  Embeds {{The names of 2 of your Signal contacts}}. */
+"HOME_VIEW_FIRST_CONVERSATION_OFFER_2_CONTACTS_FORMAT" = "Some of your contacts are already on Signal, including %@ and %@";
+
+/* Format string for a label offering to start a new conversation with your contacts, if you have at least 3 Signal contacts.  Embeds {{The names of 3 of your Signal contacts}}. */
+"HOME_VIEW_FIRST_CONVERSATION_OFFER_3_CONTACTS_FORMAT" = "Some of your contacts are already on Signal, including %@, %@ and %@";
+
+/* A label offering to start a new conversation with your contacts, if you have no Signal contacts. */
+"HOME_VIEW_FIRST_CONVERSATION_OFFER_NO_CONTACTS" = "Start your first conversation here.";
+
+/* Table cell subtitle label for a conversation the user has not accepted. */
+"HOME_VIEW_MESSAGE_REQUEST_CONVERSATION" = "Message Request";
+
 /* Format string when search returns no results. Embeds {{search term}} */
 "HOME_VIEW_SEARCH_NO_RESULTS_FORMAT" = "Tidak ada hasil ditemukan untuk '%@'";
 
@@ -1079,12 +1181,6 @@
 
 /* Title for the home view's default mode. */
 "HOME_VIEW_TITLE_INBOX" = "Signal";
-
-/* Label for brush button in image editor. */
-"IMAGE_EDITOR_BRUSH_BUTTON" = "Brush";
-
-/* Label for crop button in image editor. */
-"IMAGE_EDITOR_CROP_BUTTON" = "Crop";
 
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
 "IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "You can't share more than %@ items.";
@@ -1110,6 +1206,9 @@
 /* Label reminding the user that they are in archive mode. */
 "INBOX_VIEW_ARCHIVE_MODE_REMINDER" = "These conversations are archived and will only appear in the Inbox if new messages are received.";
 
+/* Message shown in the home view when the inbox is empty. */
+"INBOX_VIEW_EMPTY_INBOX" = "Tuliskan pesan melalui kotak pesan Anda. Mulailah dengan menulis kepada seorang kawan.";
+
 /* Multi-line label explaining how to show names instead of phone numbers in your inbox */
 "INBOX_VIEW_MISSING_CONTACTS_PERMISSION" = "You can enable contacts access in the iOS Settings app to see contact names in your Signal conversation list.";
 
@@ -1124,6 +1223,15 @@
 
 /* info message text shown in conversation view */
 "INFO_MESSAGE_MISSED_CALL_DUE_TO_CHANGED_IDENITY" = "Panggilan gagal karena nomor keamanan telah berubah.";
+
+/* Shown in inbox and conversation when a user joins Signal, embeds the new user's {{contact name}} */
+"INFO_MESSAGE_USER_JOINED_SIGNAL_BODY_FORMAT" = "%@ is on Signal!";
+
+/* accessibility label for the button which shows the sticker picker */
+"INPUT_TOOLBAR_STICKER_BUTTON_ACCESSIBILITY_LABEL" = "Stiker";
+
+/* accessibility label for the button which records voice memos */
+"INPUT_TOOLBAR_VOICE_MEMO_BUTTON_ACCESSIBILITY_LABEL" = "Pesan Suara";
 
 /* Message for the alert indicating that an audio file is invalid. */
 "INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Berkas audio tidak valid.";
@@ -1194,6 +1302,12 @@
 /* table cell label in conversation settings */
 "LIST_GROUP_MEMBERS_ACTION" = "Anggota Grup";
 
+/* A string indicating that the user can search for a location */
+"LOCATION_PICKER_SEARCH_PLACEHOLDER" = "Search by name or address";
+
+/* The title for the location picker view */
+"LOCATION_PICKER_TITLE" = "Select Location";
+
 /* No comment provided by engineer. */
 "LOGGING_SECTION" = "Masuk";
 
@@ -1205,9 +1319,6 @@
 
 /* media picker option to take photo or video */
 "MEDIA_FROM_CAMERA_BUTTON" = "Kamera";
-
-/* action sheet button title when choosing attachment type */
-"MEDIA_FROM_DOCUMENT_PICKER_BUTTON" = "Dokumen";
 
 /* media picker option to choose from library */
 "MEDIA_FROM_LIBRARY_BUTTON" = "Pustaka Foto";
@@ -1257,7 +1368,7 @@
 /* Label for the recipient name in the 'message approval' dialog. */
 "MESSAGE_APPROVAL_RECIPIENT_LABEL" = "Kepada:";
 
-/* No comment provided by engineer. */
+/* Title for the compose view. */
 "MESSAGE_COMPOSEVIEW_TITLE" = "Pesan Baru";
 
 /* Label for file size of attachments in the 'message metadata' view. */
@@ -1305,8 +1416,38 @@
 /* Title for the 'message metadata' view. */
 "MESSAGE_METADATA_VIEW_TITLE" = "Pesan";
 
+/* A button used to block a user on an incoming message request. */
+"MESSAGE_REQUEST_VIEW_ACCEPT_BUTTON" = "Terima";
+
+/* A button used to block a user on an incoming message request. */
+"MESSAGE_REQUEST_VIEW_BLOCK_BUTTON" = "Blokir";
+
+/* A button used to block a user on an incoming message request. */
+"MESSAGE_REQUEST_VIEW_DELETE_BUTTON" = "Hapus";
+
+/* A prompt notifying that the user must share their profile with this conversation. Embeds {{contact name}}. */
+"MESSAGE_REQUEST_VIEW_EXISTING_CONTACT_PROMPT_FORMAT" = "You must share your profile to continue your conversation with %@.";
+
+/* A prompt notifying that the user must share their profile with this group. Embeds {{group name}}. */
+"MESSAGE_REQUEST_VIEW_EXISTING_GROUP_PROMPT_FORMAT" = "You must share your profile to continue your conversation in %@.";
+
+/* A button used to learn more about why you must share your profile. */
+"MESSAGE_REQUEST_VIEW_LEARN_MORE_BUTTON" = "Lebih Lanjut";
+
+/* A prompt asking if the user wants to accept a conversation invite. Embeds {{contact name}}. */
+"MESSAGE_REQUEST_VIEW_NEW_CONTACT_PROMPT_FORMAT" = "Do you want to let %@ message you? They won’t know you’ve seen their messages until you accept.";
+
+/* A prompt asking if the user wants to accept a group invite. Embeds {{group name}}. */
+"MESSAGE_REQUEST_VIEW_NEW_GROUP_PROMPT_FORMAT" = "Do you want to join the group %@? They won’t know you’ve seen their messages until you accept.";
+
+/* A button used to share your profile with an existing thread. */
+"MESSAGE_REQUEST_VIEW_SHARE_PROFILE_BUTTON" = "Bagikan Profil";
+
 /* message status for message delivered to their recipient. */
 "MESSAGE_STATUS_DELIVERED" = "Terkirim";
+
+/* message status while message is downloading. */
+"MESSAGE_STATUS_DOWNLOADING" = "Mengunduh";
 
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "Gagal mengirim";
@@ -1353,9 +1494,6 @@
 /* Indicates that some members of this group has been blocked. Embeds {{the number of blocked users in this group}}. */
 "MESSAGES_VIEW_GROUP_N_MEMBERS_BLOCKED_FORMAT" = "You Blocked %@ Members of This Group";
 
-/* Text for banner in group conversation view that offers to share your profile with this group. */
-"MESSAGES_VIEW_GROUP_PROFILE_WHITELIST_BANNER" = "Bagikan Profil Anda Dengan Grup Ini?";
-
 /* Indicates that more than one member of this group conversation is no longer verified. */
 "MESSAGES_VIEW_N_MEMBERS_NO_LONGER_VERIFIED" = "Lebih dari satu anggota dari grup ini tak lagi terverifikasi. Ketuk untuk pilihan.";
 
@@ -1381,6 +1519,12 @@
 /* Alert title
    Alert title when camera is not authorized */
 "MISSING_CAMERA_PERMISSION_TITLE" = "Signal butuh akses ke kamera Anda.";
+
+/* Alert body indicating the user has denied location permissios */
+"MISSING_LOCATION_PERMISSION_MESSAGE" = "You can enable this permission in the iOS Settings app.";
+
+/* Alert title indicating the user has denied location permissios */
+"MISSING_LOCATION_PERMISSION_TITLE" = "Signal requires access to your location for this feature.";
 
 /* Alert body when user has previously denied media library access */
 "MISSING_MEDIA_LIBRARY_PERMISSION_MESSAGE" = "You can enable this permission in the iOS Settings app.";
@@ -1424,9 +1568,6 @@
 /* A label the cell that lets you add a new member to a group. */
 "NEW_CONVERSATION_FIND_BY_PHONE_NUMBER" = "Temukan lewat Nomor Telepon";
 
-/* A label for the cell that lets you add a new non-contact member to a group. */
-"NEW_GROUP_ADD_NON_CONTACT" = "Masukkan melalui Nomor Telepon";
-
 /* Action Sheet title prompting the user for a group avatar */
 "NEW_GROUP_ADD_PHOTO_ACTION" = "Atur Foto Grup";
 
@@ -1445,7 +1586,7 @@
 /* Placeholder text for group name field */
 "NEW_GROUP_NAMEGROUP_REQUEST_DEFAULT" = "Beri nama grup percakapan ini";
 
-/* a title for the non-contacts section of the 'new group' view. */
+/* a title for the selected section of the 'recipient picker' view. */
 "NEW_GROUP_NON_CONTACTS_SECTION_TITLE" = "Pengguna Lain";
 
 /* The alert message if user tries to exit the new group view without saving changes. */
@@ -1466,8 +1607,14 @@
 /* Label for a button that lets users search for contacts by phone number */
 "NO_CONTACTS_SEARCH_BY_PHONE_NUMBER" = "Temukan Kontak dengan Nomor Telepon";
 
+/* A string prompting the user to send a new mesaage to a user */
+"NON_CONTACT_TABLE_CELL_NEW_MESSAGE" = "New message to:";
+
+/* A string asking the user if they'd like to invite a number to signal via SMS. */
+"NON_CONTACT_TABLE_CELL_SEND_SMS" = "No user found. Invite via SMS?";
+
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "Note to Self";
+"NOTE_TO_SELF" = "Catatan Pribadi";
 
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
 "NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Anda mungkin telah menerima pesan ketika %@ Anda sedang memulai ulang.";
@@ -1496,6 +1643,108 @@
 /* No comment provided by engineer. */
 "OK" = "OK";
 
+/* Label indicating that the 2fa pin is exhausted in the 'onboarding 2fa' view. */
+"ONBOARDING_2FA_ATTEMPTS_EXHAUSTED" = "Incorrect PIN. Attempts exhausted.";
+
+/* The first explanation in the 'onboarding 2FA' view. */
+"ONBOARDING_2FA_EXPLANATION_1" = "Nomor telepon ini dilengkapi dengan Kunci Pendaftaran. Silakan masukkan PIN Kunci Pendaftaran.";
+
+/* The first explanation in the 'onboarding 2FA' view. */
+"ONBOARDING_2FA_EXPLANATION_2" = "Your Registration Lock PIN is separate from the automated verification code that was sent to your phone during the last step.";
+
+/* Label for the 'forgot 2FA PIN' link in the 'onboarding 2FA' view. */
+"ONBOARDING_2FA_FORGOT_PIN_LINK" = "Forgot your PIN?";
+
+/* Label indicating that the 2fa pin is invalid in the 'onboarding 2fa' view. */
+"ONBOARDING_2FA_INVALID_PIN" = "Incorrect PIN";
+
+/* Label indicating that the 2fa pin is invalid with a retry count other than one in the 'onboarding 2fa' view. */
+"ONBOARDING_2FA_INVALID_PIN_PLURAL_FORMAT" = "Incorrect PIN. %lu attempts remaining.";
+
+/* Label indicating that the 2fa pin is invalid with a retry count of one in the 'onboarding 2fa' view. */
+"ONBOARDING_2FA_INVALID_PIN_SINGLE" = "Incorrect PIN. 1 attempt remaining.";
+
+/* Title of the 'onboarding 2FA' view. */
+"ONBOARDING_2FA_TITLE" = "Kunci Pendaftaran";
+
+/* Explanation of the 'onboarding account locked' view. */
+"ONBOARDING_ACCOUNT_LOCKED_EXPLANATION" = "To protect your privacy and the security of your account, we’ve locked it for 7 days.\n\nAfter 7 days of inactivity, you’ll be able to reregister this phone number without needing your PIN. All content will be wiped.";
+
+/* Label for the 'learn more' link in the 'onboarding account locked' view. */
+"ONBOARDING_ACCOUNT_LOCKED_LEARN_MORE" = "Learn more about locked accounts";
+
+/* Title of the 'onboarding account locked' view. */
+"ONBOARDING_ACCOUNT_LOCKED_TITLE" = "Account Locked";
+
+/* Title of the 'onboarding Captcha' view. */
+"ONBOARDING_CAPTCHA_TITLE" = "Add a touch of humanity to your messages";
+
+/* Label for the 'give access' button in the 'onboarding permissions' view. */
+"ONBOARDING_PERMISSIONS_ENABLE_PERMISSIONS_BUTTON" = "Enable Permissions";
+
+/* Explanation in the 'onboarding permissions' view. */
+"ONBOARDING_PERMISSIONS_EXPLANATION" = "Your contact information is always transmitted securely.";
+
+/* Label for the 'not now' button in the 'onboarding permissions' view. */
+"ONBOARDING_PERMISSIONS_NOT_NOW_BUTTON" = "Tidak Sekarang";
+
+/* Title of the 'onboarding permissions' view. */
+"ONBOARDING_PERMISSIONS_TITLE" = "Signal can let you know when you get a message (and who it is from)";
+
+/* Title of the 'onboarding phone number' view. */
+"ONBOARDING_PHONE_NUMBER_TITLE" = "masukkan nomor telepon untuk memulai";
+
+/* Label indicating that the phone number is invalid in the 'onboarding phone number' view. */
+"ONBOARDING_PHONE_NUMBER_VALIDATION_WARNING" = "Nomor salah";
+
+/* Title of the 'onboarding PIN' view. */
+"ONBOARDING_PIN_EXPLANATION" = "Enter the PIN you created for your account. This is different from your SMS verification code.";
+
+/* Title of the 'onboarding PIN' view. */
+"ONBOARDING_PIN_TITLE" = "Enter your PIN";
+
+/* Link to the 'terms and privacy policy' in the 'onboarding splash' view. */
+"ONBOARDING_SPLASH_TERM_AND_PRIVACY_POLICY" = "Syarat & Kebijakan Privasi";
+
+/* Title of the 'onboarding splash' view. */
+"ONBOARDING_SPLASH_TITLE" = "Take privacy with you.\nBe yourself in every message.";
+
+/* Label for the link that lets users change their phone number in the onboarding views. */
+"ONBOARDING_VERIFICATION_BACK_LINK" = "Salah nomor?";
+
+/* Format for the label of the 'sent code' label of the 'onboarding verification' view. Embeds {{the time until the code can be resent}}. */
+"ONBOARDING_VERIFICATION_CODE_COUNTDOWN_FORMAT" = "I didn't get a code (available in %@)";
+
+/* action sheet item shown after a number of failures to receive a verificaiton SMS during registration */
+"ONBOARDING_VERIFICATION_EMAIL_SIGNAL_SUPPORT" = "Contact Signal Support";
+
+/* Label indicating that the verification code is incorrect in the 'onboarding verification' view. */
+"ONBOARDING_VERIFICATION_INVALID_CODE" = "This code is incorrect";
+
+/* Label for link that can be used when the original code did not arrive. */
+"ONBOARDING_VERIFICATION_ORIGINAL_CODE_MISSING_LINK" = "I didn't get a code";
+
+/* Message for the 'resend code' alert in the 'onboarding verification' view. */
+"ONBOARDING_VERIFICATION_RESEND_CODE_ALERT_MESSAGE" = "Please ensure that you have cellular service and can receive SMS messages.";
+
+/* Title for the 'resend code' alert in the 'onboarding verification' view. */
+"ONBOARDING_VERIFICATION_RESEND_CODE_ALERT_TITLE" = "No code?";
+
+/* Label for the 'resend code by SMS' button in the 'onboarding verification' view. */
+"ONBOARDING_VERIFICATION_RESEND_CODE_BY_SMS_BUTTON" = "Resend Code";
+
+/* Label for the 'resend code by voice' button in the 'onboarding verification' view. */
+"ONBOARDING_VERIFICATION_RESEND_CODE_BY_VOICE_BUTTON" = "Sebaiknya menelepon saya";
+
+/* Label for link that can be used when the resent code did not arrive. */
+"ONBOARDING_VERIFICATION_RESENT_CODE_MISSING_LINK" = "Still no code?";
+
+/* Format for the title of the 'onboarding verification' view. Embeds {{the user's phone number}}. */
+"ONBOARDING_VERIFICATION_TITLE_DEFAULT_FORMAT" = "Enter the code we sent to %@";
+
+/* Format for the title of the 'onboarding verification' view after the verification code has been resent. Embeds {{the user's phone number}}. */
+"ONBOARDING_VERIFICATION_TITLE_RESENT_FORMAT" = "We just resent a code to %@";
+
 /* Button text which opens the settings app */
 "OPEN_SETTINGS_BUTTON" = "Pengaturan";
 
@@ -1519,6 +1768,36 @@
 
 /* A display format for oversize text messages. */
 "OVERSIZE_TEXT_DISPLAY_FORMAT" = "%@...";
+
+/* Error indicating that a PDF could not be displayed. */
+"PDF_VIEW_COULD_NOT_RENDER" = "PDF could not be displayed";
+
+/* Navbar title for for PDF view. */
+"PDF_VIEW_TITLE" = "PDF";
+
+/* Label for view-once messages that have invalid content. */
+"PER_MESSAGE_EXPIRATION_INVALID_CONTENT" = "Gagal dalam menangani pesan masuk";
+
+/* inbox cell and notification text for an already viewed view-once media message. */
+"PER_MESSAGE_EXPIRATION_NOT_VIEWABLE" = "Media Message";
+
+/* Label for outgoing view-once messages. */
+"PER_MESSAGE_EXPIRATION_OUTGOING_MESSAGE" = "Media";
+
+/* inbox cell and notification text for a view-once photo. */
+"PER_MESSAGE_EXPIRATION_PHOTO_PREVIEW" = "Disappearing Photo";
+
+/* inbox cell and notification text for a view-once video. */
+"PER_MESSAGE_EXPIRATION_VIDEO_PREVIEW" = "Disappearing Video";
+
+/* Label for view-once messages indicating that user can tap to view the message's contents. */
+"PER_MESSAGE_EXPIRATION_VIEW_PHOTO" = "Foto";
+
+/* Label for view-once messages indicating that user can tap to view the message's contents. */
+"PER_MESSAGE_EXPIRATION_VIEW_VIDEO" = "Video";
+
+/* Label for view-once messages indicating that the local user has viewed the message's contents. */
+"PER_MESSAGE_EXPIRATION_VIEWED" = "Viewed";
 
 /* A format for a label showing an example phone number. Embeds {{the example phone number}}. */
 "PHONE_NUMBER_EXAMPLE_FORMAT" = "Misalnya: %@";
@@ -1559,8 +1838,71 @@
 /* Label for 'Work FAX' phone numbers. */
 "PHONE_NUMBER_TYPE_WORK_FAX" = "Kerja Fax";
 
+/* alert title, generic error preventing user from capturing a photo */
+"PHOTO_CAPTURE_GENERIC_ERROR" = "Unable to capture image.";
+
+/* alert title */
+"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Unable to capture image.";
+
+/* alert title */
+"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Failed to configure camera.";
+
 /* label for system photo collections which have no name. */
 "PHOTO_PICKER_UNNAMED_COLLECTION" = "Unnamed Album";
+
+/* The bold portion of the explanation in the 'pin creation' view. */
+"PIN_CREATION_BOLD_EXPLANATION" = "There is no way to recover your PIN, so remember it.";
+
+/* Title of the 'pin creation' recreation view. */
+"PIN_CREATION_CHANGING_TITLE" = "Change your PIN";
+
+/* The explanation of confirmation in the 'pin creation' view. */
+"PIN_CREATION_CONFIRMATION_EXPLANATION" = "Confirm your new PIN.";
+
+/* The explanation in the 'pin creation' view. */
+"PIN_CREATION_EXPLANATION" = "Your PIN adds and extra layer of security and backs up your account.";
+
+/* Label indicating that the attempted PIN does not match the first PIN */
+"PIN_CREATION_MISMATCH_ERROR" = "PINs don’t match. Try again.";
+
+/* The placeholder when confirming a pin in the 'pin creation' view. */
+"PIN_CREATION_PIN_CONFIRMATION_PLACEHOLDER" = "Re-enter PIN";
+
+/* The placeholder when creating a pin in the 'pin creation' view. */
+"PIN_CREATION_PIN_CREATION_PLACEHOLDER" = "PIN must be 4+ digits";
+
+/* The bold portion of the re-creation explanation in the 'pin creation' view. */
+"PIN_CREATION_RECREATION_BOLD_EXPLANATION" = "When you’re logged out, there is no way to recover your PIN.";
+
+/* The re-creation explanation in the 'pin creation' view. */
+"PIN_CREATION_RECREATION_EXPLANATION" = "Because you’re still logged in, you can create a new PIN.";
+
+/* Title of the 'pin creation' recreation view. */
+"PIN_CREATION_RECREATION_TITLE" = "Create a new PIN";
+
+/* Title of the 'pin creation' view. */
+"PIN_CREATION_TITLE" = "Create your PIN";
+
+/* Label indicating that the attempted PIN is too long */
+"PIN_CREATION_TOO_LONG_ERROR" = "PIN must be no more than 20 digits.";
+
+/* Label indicating that the attempted PIN is too short */
+"PIN_CREATION_TOO_SHORT_ERROR" = "PIN must be at least 4 digits.";
+
+/* The explanation for the 'pin reminder' dialog. */
+"PIN_REMINDER_EXPLANATION" = "To help you memorize your PIN, we’ll ask you to enter it periodically. We’ll ask less over time.";
+
+/* Text asking if the user forgot their pin for the 'pin reminder' dialog. */
+"PIN_REMINDER_FORGOT_PIN" = "Forgot your PIN?";
+
+/* Label indicating that the attempted PIN does not match the user's PIN */
+"PIN_REMINDER_MISMATCH_ERROR" = "Invalid PIN, try again.";
+
+/* The title for the 'pin reminder' dialog. */
+"PIN_REMINDER_TITLE" = "Enter your Signal PIN";
+
+/* Label indicating that the attempted PIN is too short */
+"PIN_REMINDER_TOO_SHORT_ERROR" = "PIN must be at least 4 digits.";
 
 /* Accessibility label for button to start media playback */
 "PLAY_BUTTON_ACCESSABILITY_LABEL" = "Mainkan Media";
@@ -1616,17 +1958,14 @@
 /* No comment provided by engineer. */
 "PROCEED_BUTTON" = "Lanjutkan";
 
-/* Label text combining the phone number and profile name separated by a simple demarcation character. Phone number should be most prominent. '%1$@' is replaced with {{phone number}} and '%2$@' is replaced with {{profile name}} */
-"PROFILE_NAME_AND_PHONE_NUMBER_LABEL_FORMAT" = "%1$@~%2$@";
-
-/* Prepend a simple marker to differentiate the profile name, embeds the contact's {{profile name}}. */
-"PROFILE_NAME_LABEL_FORMAT" = "~%@";
-
 /* Action Sheet title prompting the user for a profile avatar */
 "PROFILE_VIEW_AVATAR_ACTIONSHEET_TITLE" = "Atur Profil Avatar";
 
 /* Label for action that clear's the user's profile avatar */
 "PROFILE_VIEW_CLEAR_AVATAR" = "Bersihkan Avatar";
+
+/* A string indicating that the user can create a username on the profile view. */
+"PROFILE_VIEW_CREATE_USERNAME" = "Create Username";
 
 /* Error message shown when user tries to update profile with a profile name that is too long. */
 "PROFILE_VIEW_ERROR_PROFILE_NAME_TOO_LONG" = "Nama Profil Anda Kepanjangan.";
@@ -1636,9 +1975,6 @@
 
 /* Default text for the profile name field of the profile view. */
 "PROFILE_VIEW_NAME_DEFAULT_TEXT" = "Masukkan Nama";
-
-/* Label for the profile avatar field of the profile view. */
-"PROFILE_VIEW_PROFILE_AVATAR_FIELD" = "Avatar";
 
 /* Description of the user profile. */
 "PROFILE_VIEW_PROFILE_DESCRIPTION" = "Profil Signal Anda akan ditampilkan dalam buku kontak, ketika Anda memulai percakapan, dan saat Anda membagikannya dengan pengguna lain dan grup.";
@@ -1654,6 +1990,9 @@
 
 /* Title for the profile view. */
 "PROFILE_VIEW_TITLE" = "Profil";
+
+/* Label for the username field of the profile view. */
+"PROFILE_VIEW_USERNAME_FIELD" = "Username";
 
 /* Notification action button title */
 "PUSH_MANAGER_MARKREAD" = "Tandai telah Dibaca";
@@ -1707,13 +2046,19 @@
 "REGISTER_2FA_FORGOT_PIN" = "Saya lupa PIN saya.";
 
 /* Alert message explaining what happens if you forget your 'two-factor auth pin'. */
-"REGISTER_2FA_FORGOT_PIN_ALERT_MESSAGE" = "Pendaftaran nomor telpon ini dapat dilakukan tanpa PIN Kunci Pendaftaran jika 7 hari telah berlalu semenjak nomor telpon tersebut terakhir aktif di Signal.";
+"REGISTER_2FA_FORGOT_PIN_ALERT_MESSAGE" = "For your privacy and security, there is no way to recover your PIN. If you can’t remember your PIN, you may re-verify with SMS after 7 days of inactivity. In this case, your account will be wiped and all content deleted.";
 
-/* Instructions to enter the 'two-factor auth pin' in the 2FA registration view. */
-"REGISTER_2FA_INSTRUCTIONS" = "Nomor telpon ini memiliki Kunci Pendaftaran aktif. Masukkan PIN Kunci Pendaftaran.\n\nPIN Kunci Pendaftaran Anda terpisah dari kode verifikasi otomatis yang dikirimkan ke telpon Anda di langkah terakhir.";
+/* Alert title explaining what happens if you forget your 'two-factor auth pin'. */
+"REGISTER_2FA_FORGOT_PIN_ALERT_TITLE" = "Forgot your PIN?";
 
-/* Title for alert indicating that attempt to register with 'two-factor auth' failed. */
-"REGISTER_2FA_REGISTRATION_FAILED_ALERT_TITLE" = "Pendaftaran Gagal";
+/* Alert message explaining what happens if you get your pin wrong and have multiple attempts remaining 'two-factor auth pin'. */
+"REGISTER_2FA_INVALID_PIN_ALERT_MESSAGE_PLURAL_FORMAT" = "You have %lu attempts remaining. If you run out of attempts your account will be locked. After 7 days of inactivity, you can re-register without your PIN. Your account will be wiped and all content deleted.";
+
+/* Alert message explaining what happens if you get your pin wrong and have one attempt remaining 'two-factor auth pin'. */
+"REGISTER_2FA_INVALID_PIN_ALERT_MESSAGE_SINGLE" = "You have 1 attempt remaining. If you run out of attempts your account will be locked. After 7 days of inactivity, you can re-register without your PIN. Your account will be wiped and all content deleted.";
+
+/* Alert title explaining what happens if you forget your 'two-factor auth pin'. */
+"REGISTER_2FA_INVALID_PIN_ALERT_TITLE" = "Incorrect PIN";
 
 /* Label for 'submit' button in the 2FA registration view. */
 "REGISTER_2FA_SUBMIT_BUTTON" = "Kirimkan";
@@ -1736,9 +2081,6 @@
 /* Label for the country code field */
 "REGISTRATION_DEFAULT_COUNTRY_NAME" = "Kode Negeri";
 
-/* Navigation title shown when user is re-registering after having enabled registration lock */
-"REGISTRATION_ENTER_LOCK_PIN_NAV_TITLE" = "Kunci Pendaftaran";
-
 /* Placeholder text for the phone number textfield */
 "REGISTRATION_ENTERNUMBER_DEFAULT_TEXT" = "Masukan Nomor";
 
@@ -1757,15 +2099,6 @@
 /* alert title when registering an iPad */
 "REGISTRATION_IPAD_CONFIRM_TITLE" = "Sudah memiliki akun Signal?";
 
-/* one line label below submit button on registration screen, which links to an external webpage. */
-"REGISTRATION_LEGAL_TERMS_LINK" = "Syarat & Kebijakan Privasi";
-
-/* legal disclaimer, embeds a tappable {{link title}} which is styled as a hyperlink */
-"REGISTRATION_LEGAL_TOP_MATTER_FORMAT" = "Dengan mendaftarkan perangkat ini, Anda menyetujui %@ Signal";
-
-/* embedded in legal topmatter, styled as a link */
-"REGISTRATION_LEGAL_TOP_MATTER_LINK_TITLE" = "syarat";
-
 /* No comment provided by engineer. */
 "REGISTRATION_NON_VALID_NUMBER" = "Format nomor telfon ini tidak didukung, silahkan untuk menghubungi bantuan";
 
@@ -1775,9 +2108,6 @@
 /* No comment provided by engineer. */
 "REGISTRATION_RESTRICTED_MESSAGE" = "You need to register before you can send a message.";
 
-/* No comment provided by engineer. */
-"REGISTRATION_TITLE_LABEL" = "Nomor telepon Anda";
-
 /* Alert view title */
 "REGISTRATION_VERIFICATION_FAILED_TITLE" = "Verifikasi gagal";
 
@@ -1786,9 +2116,6 @@
 
 /* Error message indicating that registration failed due to a missing or incorrect 2FA PIN. */
 "REGISTRATION_VERIFICATION_FAILED_WRONG_PIN" = "PIN Kunci Pendaftaran Salah";
-
-/* No comment provided by engineer. */
-"REGISTRATION_VERIFY_DEVICE" = "Daftar";
 
 /* Message of alert indicating that users needs to enter a valid phone number to register. */
 "REGISTRATION_VIEW_INVALID_PHONE_NUMBER_ALERT_MESSAGE" = "Tolong masukkan nomor telepon yang sah untuk mendaftar";
@@ -1883,8 +2210,14 @@
 /* Label for button on lock screen that lets users unlock Signal. */
 "SCREEN_LOCK_UNLOCK_SIGNAL" = "Buka kunci Signal";
 
-/* No comment provided by engineer. */
+/* Placeholder text indicating the user can search for contacts by name, username, or phone number. */
+"SEARCH_BY_NAME_OR_USERNAME_OR_NUMBER_PLACEHOLDER_TEXT" = "Name, username, or number";
+
+/* Placeholder text indicating the user can search for contacts by name or phone number. */
 "SEARCH_BYNAMEORNUMBER_PLACEHOLDER_TEXT" = "Cari berdasarkan nama atau nomer";
+
+/* placeholder text in an empty search field */
+"SEARCH_FIELD_PLACE_HOLDER_TEXT" = "Pencarian";
 
 /* section header for search results that match a contact who doesn't have an existing conversation */
 "SEARCH_SECTION_CONTACTS" = "Kontak Lainnya";
@@ -1897,9 +2230,6 @@
 
 /* No comment provided by engineer. */
 "SECURE_SESSION_RESET" = "Sesi aman telah di ulang.";
-
-/* Label for 'select GIF to attach' action sheet button */
-"SELECT_GIF_BUTTON" = "GIF";
 
 /* Table section header for conversations you haven't recently used. */
 "SELECT_THREAD_TABLE_OTHER_CHATS_TITLE" = "Kontak Lainnya";
@@ -1922,8 +2252,17 @@
 /* Alert body after invite succeeded */
 "SEND_INVITE_SUCCESS" = "You invited your friend to use Signal!";
 
-/* Text for button to send a Signal invite via SMS. %@ is placeholder for the recipient's phone number. */
-"SEND_INVITE_VIA_SMS_BUTTON_FORMAT" = "Undang melalui %@";
+/* alert title when user attempts to leave the send media flow when they have an in-progress album */
+"SEND_MEDIA_ABANDON_TITLE" = "Discard Media?";
+
+/* alert action, confirming the user wants to exit the media flow and abandon any photos they've taken */
+"SEND_MEDIA_CONFIRM_ABANDON_ALBUM" = "Discard Media";
+
+/* alert action when the user decides not to cancel the media flow after all. */
+"SEND_MEDIA_RETURN_TO_CAMERA" = "Return to Camera";
+
+/* alert action when the user decides not to cancel the media flow after all. */
+"SEND_MEDIA_RETURN_TO_MEDIA_LIBRARY" = "Return to Media Library";
 
 /* No comment provided by engineer. */
 "SEND_SMS_CONFIRM_TITLE" = "Undang teman melalui SMS tidak aman?";
@@ -1933,12 +2272,6 @@
 
 /* Navbar title */
 "SETTINGS_ABOUT" = "Tentang";
-
-/* Title for the 'block contact' section of the 'add to block list' view. */
-"SETTINGS_ADD_TO_BLOCK_LIST_BLOCK_CONTACT_TITLE" = "Blokir kontak";
-
-/* Title for the 'block phone number' section of the 'add to block list' view. */
-"SETTINGS_ADD_TO_BLOCK_LIST_BLOCK_PHONE_NUMBER_TITLE" = "Blokir nomor telepon";
 
 /* Title for the 'add to block list' view. */
 "SETTINGS_ADD_TO_BLOCK_LIST_TITLE" = "Blokir";
@@ -1954,6 +2287,9 @@
 
 /* Table footer for the 'censorship circumvention' section shown when censorship circumvention has been auto-enabled based on local phone number. */
 "SETTINGS_ADVANCED_CENSORSHIP_CIRCUMVENTION_FOOTER_AUTO_ENABLED" = "Pengelabuan Penyensoran telah diaktifkan berdasarkan nomor telepon Anda.";
+
+/* Table footer for the 'censorship circumvention' section shown when censorship circumvention has been manually disabled. */
+"SETTINGS_ADVANCED_CENSORSHIP_CIRCUMVENTION_FOOTER_MANUALLY_DISABLED" = "You have manually disabled censorship circumvention.";
 
 /* Table footer for the 'censorship circumvention' section shown when the app is not connected to the internet. */
 "SETTINGS_ADVANCED_CENSORSHIP_CIRCUMVENTION_FOOTER_NO_CONNECTION" = "Penghindar penyensoran hanya dapat diaktifkan ketika terkoneksi dengan internet";
@@ -1972,6 +2308,15 @@
 
 /* No comment provided by engineer. */
 "SETTINGS_ADVANCED_TITLE" = "Lanjutan";
+
+/* table cell label */
+"SETTINGS_ADVANCED_VIEW_ERROR_LOG" = "Error Logs";
+
+/* The title for the theme section in the appearance settings. */
+"SETTINGS_APPEARANCE_THEME_TITLE" = "Tema";
+
+/* The title for the appearance settings. */
+"SETTINGS_APPEARANCE_TITLE" = "Penampilan";
 
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (bawaan)";
@@ -2085,7 +2430,7 @@
 "SETTINGS_LINK_PREVIEWS" = "Send Link Previews";
 
 /* Footer for setting for enabling & disabling link previews. */
-"SETTINGS_LINK_PREVIEWS_FOOTER" = "Previews are supported for Imgur, Instagram, Reddit, and YouTube links.";
+"SETTINGS_LINK_PREVIEWS_FOOTER" = "Previews are supported for Imgur, Instagram, Pinterest, Reddit, and YouTube links.";
 
 /* Header for setting for enabling & disabling link previews. */
 "SETTINGS_LINK_PREVIEWS_HEADER" = "Link Previews";
@@ -2099,8 +2444,23 @@
 /* table section header */
 "SETTINGS_NOTIFICATION_CONTENT_TITLE" = "Isi Pemberitahuan";
 
+/* When the local device discovers a contact has recently installed signal, the app can generates a message encouraging the local user to say hello. Turning this switch off disables that feature. */
+"SETTINGS_NOTIFICATION_EVENTS_CONTACT_JOINED_SIGNAL" = "Contact Joined Signal";
+
+/* table section header */
+"SETTINGS_NOTIFICATION_EVENTS_SECTION_TITLE" = "Acara";
+
 /* No comment provided by engineer. */
 "SETTINGS_NOTIFICATIONS" = "Notifikasi";
+
+/* Footer for the 'PINs' section of the privacy settings. */
+"SETTINGS_PINS_FOOTER" = "Your PIN adds an extra layer of security and backs up your account. You’ll be asked for it when you register your phone number with Signal. If you forget your PIN, you’ll be locked out of your account for 7 days.";
+
+/* Label for the 'pins' item of the privacy settings. */
+"SETTINGS_PINS_ITEM" = "Change your PIN";
+
+/* Title for the 'PINs' section of the privacy settings. */
+"SETTINGS_PINS_TITLE" = "PIN";
 
 /* Label for 'CallKit privacy' preference */
 "SETTINGS_PRIVACY_CALLKIT_PRIVACY_TITLE" = "Tunjukkan nama dan nomor pemanggil";
@@ -2252,6 +2612,60 @@
 /* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
 "SOUNDS_NONE" = "Kosong";
 
+/* Preview text shown in notifications and home view for sticker messages. */
+"STICKER_MESSAGE_PREVIEW" = "Sticker Message";
+
+/* Tooltip indicating that a sticker pack was installed. */
+"STICKER_PACK_INSTALLED_TOOLTIP" = "Sticker pack installed";
+
+/* Label for a sticker that failed to download. */
+"STICKERS_FAILED_DOWNLOAD" = "Sticker";
+
+/* Label for the 'install sticker pack' button. */
+"STICKERS_INSTALL_BUTTON" = "Install";
+
+/* Title for the 'available built-in stickers' section of the 'manage stickers' view. */
+"STICKERS_MANAGE_VIEW_AVAILABLE_BUILT_IN_PACKS_SECTION_TITLE" = "Signal Artist Series";
+
+/* Title for the 'available known stickers' section of the 'manage stickers' view. */
+"STICKERS_MANAGE_VIEW_AVAILABLE_KNOWN_PACKS_SECTION_TITLE" = "Stickers You Received";
+
+/* Label indicating that one or more known sticker packs failed to load. */
+"STICKERS_MANAGE_VIEW_FAILED_KNOWN_PACKS" = "Some sticker packs failed to load";
+
+/* Title for the 'installed stickers' section of the 'manage stickers' view. */
+"STICKERS_MANAGE_VIEW_INSTALLED_PACKS_SECTION_TITLE" = "Installed Stickers";
+
+/* Label indicating that one or more known sticker packs is loading. */
+"STICKERS_MANAGE_VIEW_LOADING_KNOWN_PACKS" = "Loading…";
+
+/* Label indicating that the user has no installed sticker packs. */
+"STICKERS_MANAGE_VIEW_NO_INSTALLED_PACKS" = "No stickers installed";
+
+/* Label indicating that the user has no known sticker packs. */
+"STICKERS_MANAGE_VIEW_NO_KNOWN_PACKS" = "Stickers from incoming messages will appear here";
+
+/* Title for the 'manage stickers' view. */
+"STICKERS_MANAGE_VIEW_TITLE" = "Stiker";
+
+/* Default title for sticker packs. */
+"STICKERS_PACK_DEFAULT_TITLE" = "Sticker Pack";
+
+/* Error message shown when a sticker pack failed to install. */
+"STICKERS_PACK_INSTALL_FAILED" = "Sticker pack install failed.";
+
+/* Title of the 'share sticker pack' view. */
+"STICKERS_PACK_SHARE_VIEW_TITLE" = "Share Sticker Pack";
+
+/* The default title for the 'sticker pack' view. */
+"STICKERS_PACK_VIEW_DEFAULT_TITLE" = "Sticker Pack";
+
+/* Label indicating that the sticker pack failed to load. */
+"STICKERS_PACK_VIEW_FAILED_TO_LOAD" = "Sticker Pack failed to load";
+
+/* Label for the 'uninstall sticker pack' button. */
+"STICKERS_UNINSTALL_BUTTON" = "Uninstall";
+
 /* Alert body after verifying privacy with {{other user's name}} */
 "SUCCESSFUL_VERIFICATION_DESCRIPTION" = "Nomor keamanan Anda sesuai dengan %@. Anda dapat menandai kontak ini sebagai terverifikasi.";
 
@@ -2260,6 +2674,21 @@
 
 /* Label for button to verify a user's safety number. */
 "SYSTEM_MESSAGE_ACTION_VERIFY_SAFETY_NUMBER" = "Verifikasi nomor keamanan";
+
+/* The number of members in a group. Embeds {{member count}} */
+"THREAD_DETAILS_GROUP_MEMBER_COUNT_FORMAT" = "%lu members";
+
+/* A string indicating two mutual groups the user shares with this contact and that there are more unlisted. Embeds {{mutual group name}} */
+"THREAD_DETAILS_MORE_MUTUAL_GROUP" = "Member of %@, %@, and %lu additional groups";
+
+/* A string indicating a mutual group the user shares with this contact. Embeds {{mutual group name}} */
+"THREAD_DETAILS_ONE_MUTUAL_GROUP" = "Member of %@";
+
+/* A string indicating three mutual groups the user shares with this contact. Embeds {{mutual group name}} */
+"THREAD_DETAILS_THREE_MUTUAL_GROUP" = "Member of %@, %@, and %@";
+
+/* A string indicating two mutual groups the user shares with this contact. Embeds {{mutual group name}} */
+"THREAD_DETAILS_TWO_MUTUAL_GROUP" = "Member of %@ and %@";
 
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "%@hari";
@@ -2312,14 +2741,35 @@
 /* Pressing this button moves an archived thread from the archive back to the inbox */
 "UNARCHIVE_ACTION" = "Tidak Terarsip";
 
-/* In Inbox view, last message label for thread with corrupted attachment. */
-"UNKNOWN_ATTACHMENT_LABEL" = "Lampiran tidak dikenal";
-
 /* Message shown in conversation view that offers to block an unknown user. */
 "UNKNOWN_CONTACT_BLOCK_OFFER" = "Pengguna tidak terdapat di dalam kontak. Apakah Anda ingin memblokir pengguna ini?";
 
 /* Displayed if for some reason we can't determine a contacts phone number *or* name */
 "UNKNOWN_CONTACT_NAME" = "Panggilan Tak Dikenal";
+
+/* Label for unknown countries. */
+"UNKNOWN_COUNTRY_NAME" = "Unknown Country";
+
+/* Info message recorded in conversation history when local user receives an unknown message from a linked device and needs to upgrade. */
+"UNKNOWN_PROTOCOL_VERSION_NEED_TO_UPGRADE_FROM_LINKED_DEVICE" = "One of your devices sent a message that can't be processed or displayed here because it uses a new Signal feature.";
+
+/* Info message recorded in conversation history when local user receives an unknown message and needs to upgrade. Embeds {{user's name or phone number}}. */
+"UNKNOWN_PROTOCOL_VERSION_NEED_TO_UPGRADE_WITH_NAME_FORMAT" = "%@ sent you a message that can't be processed or displayed because it uses a new Signal feature.";
+
+/* Info message recorded in conversation history when local user receives an unknown message and needs to upgrade. */
+"UNKNOWN_PROTOCOL_VERSION_NEED_TO_UPGRADE_WITHOUT_NAME" = "You received a message that can't be processed or displayed because it uses a new Signal feature.";
+
+/* Label for button that lets users upgrade the app. */
+"UNKNOWN_PROTOCOL_VERSION_UPGRADE_BUTTON" = "Update Signal Now";
+
+/* Info message recorded in conversation history when local user has received an unknown unknown message from a linked device and has upgraded. */
+"UNKNOWN_PROTOCOL_VERSION_UPGRADE_COMPLETE_FROM_LINKED_DEVICE" = "Updated to the latest version of Signal. You can now receive this message type on your device.";
+
+/* Info message recorded in conversation history when local user has received an unknown message and has upgraded. Embeds {{user's name or phone number}}. */
+"UNKNOWN_PROTOCOL_VERSION_UPGRADE_COMPLETE_WITH_NAME_FORMAT" = "You can ask %@ to re-send this message now that you are using an up-to-date version of Signal.";
+
+/* Info message recorded in conversation history when local user has received an unknown message and has upgraded. */
+"UNKNOWN_PROTOCOL_VERSION_UPGRADE_COMPLETE_WITHOUT_NAME" = "You can ask the sender to re-send this message now that you are using an up-to-date version of Signal.";
 
 /* Indicates an unknown or unrecognizable value. */
 "UNKNOWN_VALUE" = "Tidak diketahui";
@@ -2354,89 +2804,74 @@
 /* Title for alert indicating that group members can't be removed. */
 "UPDATE_GROUP_CANT_REMOVE_MEMBERS_ALERT_TITLE" = "Not Supported";
 
-/* Description of CallKit to upgrading (existing) users */
-"UPGRADE_EXPERIENCE_CALLKIT_DESCRIPTION" = "Menjawab panggilan dari layar terkunci lebih mudah dengan panggilan iOS terintegrasi. Kami menganonimkan panggilan Anda secara otomatis, jadi hal ini juga sangat privat.";
+/* Button to start a create pin flow from the one time splash screen that appears after upgrading */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_CREATE_BUTTON" = "Create your PIN";
 
-/* button label shown once when when user upgrades app, in context of call kit */
-"UPGRADE_EXPERIENCE_CALLKIT_PRIVACY_SETTINGS_BUTTON" = "Pelajari lebih lanjut pada pengaturan pribadi";
+/* Button to open a help document explaining more about why a PIN is required */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_LEARN_MORE_BUTTON" = "Learn more about PINs";
 
-/* Header for upgrade experience */
-"UPGRADE_EXPERIENCE_CALLKIT_TITLE" = "Geser untuk menjawab";
+/* Body text for PINs migration splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_MIGRATION_DESCRIPTION" = "Your Registration Lock now does more. With PINs you can take your contacts with you when you switch devices.";
 
-/* button label shown one time, after upgrade */
-"UPGRADE_EXPERIENCE_ENABLE_TYPING_INDICATOR_BUTTON" = "Turn On Typing Indicators";
+/* Header for PINs migration splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_MIGRATION_TITLE" = "Registration Lock = PIN";
 
-/* Body text for upgrading users */
-"UPGRADE_EXPERIENCE_INTRODUCING_LINK_PREVIEWS_DESCRIPTION" = "Optional link previews are now supported for some of the most popular sites on the Internet.";
+/* Body text for PINs splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_SETUP_DESCRIPTION" = "Add even more security to your account and take your contacts with you when you switch phones.";
 
-/* Subtitle for upgrading users */
-"UPGRADE_EXPERIENCE_INTRODUCING_LINK_PREVIEWS_SUBTITLE" = "You can disable or enable this feature anytime in your Signal settings (Privacy > Send link previews).";
+/* Header for PINs splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_SETUP_TITLE" = "Introducing PINs";
 
-/* Header for upgrading users */
-"UPGRADE_EXPERIENCE_INTRODUCING_LINK_PREVIEWS_TITLE" = "Link Previews";
+/* Button to open a help document explaining more about why a PIN is required */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_WHY_BUTTON" = "Do I have to create a PIN?";
 
-/* Description for notification audio customization */
-"UPGRADE_EXPERIENCE_INTRODUCING_NOTIFICATION_AUDIO_DESCRIPTION" = "Anda sekarang dapat memilih bunyi pemberitahuan untuk umum maupun untuk tiap percakapan, serta panggilan akan mengikuti nada dering yang telah Anda pilih untuk setiap kontak.";
+/* Body text for stickers splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_STICKERS_DESCRIPTION" = "Why use words when you can use stickers? Tap this icon on your keyboard:";
 
-/* button label shown one time, after upgrade */
-"UPGRADE_EXPERIENCE_INTRODUCING_NOTIFICATION_AUDIO_SETTINGS_BUTTON" = "Tinjau Pengaturan Notifikasi";
-
-/* Header for upgrade experience */
-"UPGRADE_EXPERIENCE_INTRODUCING_NOTIFICATION_AUDIO_TITLE" = "Bunyi Panggilan dan Pesan telah Diperbarui";
-
-/* button label shown one time, after user upgrades app */
-"UPGRADE_EXPERIENCE_INTRODUCING_PROFILES_BUTTON" = "Siapkan profil Anda";
-
-/* Description of new profile feature for upgrading (existing) users */
-"UPGRADE_EXPERIENCE_INTRODUCING_PROFILES_DESCRIPTION" = "Sekarang Anda dapat membagikan nama dan foto profil dengan kawan Anda di Signal.";
-
-/* Header for upgrade experience */
-"UPGRADE_EXPERIENCE_INTRODUCING_PROFILES_TITLE" = "Siap foto wajah";
-
-/* Description of new profile feature for upgrading (existing) users */
-"UPGRADE_EXPERIENCE_INTRODUCING_READ_RECEIPTS_DESCRIPTION" = "Anda saat ini mempunyai pilihan melihat dan berbagi ketika pesan telah dibaca.";
-
-/* button label shown one time, after upgrade */
-"UPGRADE_EXPERIENCE_INTRODUCING_READ_RECEIPTS_PRIVACY_SETTINGS" = "Aktifkan pesan terbaca pada pengaturan privasi Anda.";
-
-/* Header for upgrade experience */
-"UPGRADE_EXPERIENCE_INTRODUCING_READ_RECEIPTS_TITLE" = "Perkenalkan pesan terbaca";
-
-/* Body text for upgrading users */
-"UPGRADE_EXPERIENCE_INTRODUCING_TYPING_INDICATORS_DESCRIPTION" = "Sekarang Anda dapat secara opsional melihat dan berbagi saat pesan sedang diketik.";
-
-/* Header for upgrading users */
-"UPGRADE_EXPERIENCE_INTRODUCING_TYPING_INDICATORS_TITLE" = "Introducing Typing Indicators";
-
-/* Description of video calling to upgrading (existing) users */
-"UPGRADE_EXPERIENCE_VIDEO_DESCRIPTION" = "Signal saat ini mendukung panggilan video aman. Mulailah sebuah panggilah seperti biasa, ketuk tombol kamera, dan lampai hello";
-
-/* Header for upgrade experience */
-"UPGRADE_EXPERIENCE_VIDEO_TITLE" = "Hallo panggilan video aman!";
+/* Header for stickers splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_STICKERS_TITLE" = "Introducing Stickers";
 
 /* Message for the alert indicating that user should upgrade iOS. */
-"UPGRADE_IOS_ALERT_MESSAGE" = "Signal requires iOS 9 or later. Please use the Software Update feature in the iOS Settings app.";
+"UPGRADE_IOS_ALERT_MESSAGE" = "Signal will soon require iOS 10 or later. Please upgrade in Settings app >> General >> Software Update.";
 
 /* Title for the alert indicating that user should upgrade iOS. */
 "UPGRADE_IOS_ALERT_TITLE" = "Perbarui iOS";
 
-/* button text for back button on verification view */
-"VERIFICATION_BACK_BUTTON" = "Kembali";
+/* An explanation of how usernames work on the username view. */
+"USERNAME_DESCRIPTION" = "Usernames on Signal are optional. If you choose to create a username other Signal users will be able to find you by this username and contact you without knowing your phone number.";
 
-/* Text field placeholder for SMS verification code during registration */
-"VERIFICATION_CHALLENGE_DEFAULT_TEXT" = "Kode Verifikasi";
+/* Label for the username field in the username view. */
+"USERNAME_FIELD" = "Username";
 
-/* button text during registration to request phone number verification be done via phone call */
-"VERIFICATION_CHALLENGE_SEND_VIA_VOICE" = "Sebaiknya menelepon saya";
+/* An error indicating that the supplied username contains disallowed characters. */
+"USERNAME_INVALID_CHARACTERS_ERROR" = "Usernames may only contain a-z, 0-9, and _";
 
-/* button text during registration to request another SMS code be sent */
-"VERIFICATION_CHALLENGE_SUBMIT_AGAIN" = "Kirimkan kembali kode melalui SMS";
+/* A message indicating that username lookup failed. */
+"USERNAME_LOOKUP_ERROR" = "An error occured while looking up the username. Please try again later.";
 
-/* button text during registration to submit your SMS verification code. */
-"VERIFICATION_CHALLENGE_SUBMIT_CODE" = "Kirimkan";
+/* A message indicating that the given username is not a registered signal account. Embeds {{username}} */
+"USERNAME_NOT_FOUND_FORMAT" = "%@ is not a Signal user. Make sure you’ve entered the complete username.";
 
-/* Label indicating the phone number currently being verified. */
-"VERIFICATION_PHONE_NUMBER_FORMAT" = "Masukkan kode verifikasi yang telah dikirimkan pada %@";
+/* A message indicating that the given username was not registered with signal. */
+"USERNAME_NOT_FOUND_TITLE" = "User Not Found";
+
+/* The placeholder for the username text entry in the username view. */
+"USERNAME_PLACEHOLDER" = "Enter a username";
+
+/* A prefix appeneded to all usernames when displayed */
+"USERNAME_PREFIX" = "@";
+
+/* The title for the username view. */
+"USERNAME_TITLE" = "Username";
+
+/* An error indicating that the supplied username is too short. */
+"USERNAME_TOO_SHORT_ERROR" = "Usernames must have at least 4 characters.";
+
+/* An error indicating that the supplied username is in use by another user. Embeds {{requested username}}. */
+"USERNAME_UNAVAIALBE_ERROR_FORMAT" = "%@ is taken.";
+
+/* Error moessage shown when a username update fails. */
+"USERNAME_VIEW_ERROR_UPDATE_FAILED" = "Username update failed.";
 
 /* Format for info message indicating that the verification state was unverified on this device. Embeds {{user's name or phone number}}. */
 "VERIFICATION_STATE_CHANGE_FORMAT_NOT_VERIFIED_LOCAL" = "Anda menandai  %@ sebagai tidak terverifikasi.";

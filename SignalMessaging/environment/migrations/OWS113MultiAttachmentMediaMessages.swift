@@ -1,12 +1,12 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
 import SignalServiceKit
 
 @objc
-public class OWS113MultiAttachmentMediaMessages: OWSDatabaseMigration {
+public class OWS113MultiAttachmentMediaMessages: YDBDatabaseMigration {
 
     // MARK: - Dependencies
 
@@ -14,7 +14,7 @@ public class OWS113MultiAttachmentMediaMessages: OWSDatabaseMigration {
 
     // Increment a similar constant for each migration.
     @objc
-    class func migrationId() -> String {
+    public override class var migrationId: String {
         // NOTE: that we use .1 since there was a bug in the logic to
         //       set albumMessageId.
         return "113.1"
@@ -34,38 +34,36 @@ public class OWS113MultiAttachmentMediaMessages: OWSDatabaseMigration {
         DispatchQueue.global().async {
             var legacyAttachments: [(attachmentId: String, messageId: String)] = []
 
-            self.dbReadWriteConnection().read { transaction in
-                TSMessage.enumerateCollectionObjects(with: transaction) { object, _ in
+            self.ydbReadWriteConnection.read { transaction in
+                TSMessage.ydb_enumerateCollectionObjects(with: transaction) { object, _ in
                     autoreleasepool {
                         guard let message: TSMessage = object as? TSMessage else {
                             Logger.debug("ignoring message with type: \(object)")
                             return
                         }
 
-                        guard let messageId = message.uniqueId else {
-                            owsFailDebug("messageId was unexpectedly nil")
-                            return
-                        }
-
+                        let messageId = message.uniqueId
                         for attachmentId in message.attachmentIds {
-                            legacyAttachments.append((attachmentId: attachmentId as! String, messageId: messageId))
+                            legacyAttachments.append((attachmentId: attachmentId, messageId: messageId))
                         }
                     }
                 }
             }
-            self.dbReadWriteConnection().readWrite { transaction in
+            self.ydbReadWriteConnection.readWrite { transaction in
                 for (attachmentId, messageId) in legacyAttachments {
                     autoreleasepool {
-                        guard let attachment = TSAttachment.fetch(uniqueId: attachmentId, transaction: transaction) else {
+                        // NOTE: Use legacy fetch.
+                        guard let attachment = TSAttachment.ydb_fetch(uniqueId: attachmentId, transaction: transaction) else {
                             Logger.warn("missing attachment for messageId: \(messageId)")
                             return
                         }
 
                         attachment.migrateAlbumMessageId(messageId)
-                        attachment.save(with: transaction)
+                        // NOTE: Use legacy save.
+                        attachment.ydb_save(with: transaction)
                     }
                 }
-                self.save(with: transaction)
+                self.markAsComplete(with: transaction.asAnyWrite)
             }
 
             completion()

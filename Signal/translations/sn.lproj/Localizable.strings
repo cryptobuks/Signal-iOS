@@ -4,6 +4,27 @@
 /* Action sheet item */
 "ACCEPT_NEW_IDENTITY_ACTION" = "Bvumira nhamba itsva yekuchengetedza";
 
+/* Accessibility label for attachment. */
+"ACCESSIBILITY_LABEL_ATTACHMENT" = "Chibatanidzwa";
+
+/* Accessibility label for audio. */
+"ACCESSIBILITY_LABEL_AUDIO" = "Audio ";
+
+/* Accessibility label for contact. */
+"ACCESSIBILITY_LABEL_CONTACT" = "Contact";
+
+/* Accessibility label for media. */
+"ACCESSIBILITY_LABEL_MEDIA" = "Media";
+
+/* Accessibility label for message. */
+"ACCESSIBILITY_LABEL_MESSAGE" = "Shoko";
+
+/* Accessibility label for messages sent by you. */
+"ACCESSIBILITY_LABEL_SENDER_SELF" = "Iwe";
+
+/* Accessibility label for stickers. */
+"ACCESSIBILITY_LABEL_STICKER" = "Sticker";
+
 /* Label for 'audio call' button in contact view. */
 "ACTION_AUDIO_CALL" = "Runhare rwe Signal ";
 
@@ -12,34 +33,22 @@
 
 /* Label for 'send message' button in contact view.
    Label for button that lets you send a message to a contact. */
-"ACTION_SEND_MESSAGE" = "Tumira";
+"ACTION_SEND_MESSAGE" = "Tumira tsamba";
 
 /* Label for 'share contact' button. */
-"ACTION_SHARE_CONTACT" = "Gova kontakt";
+"ACTION_SHARE_CONTACT" = "Gova contact";
 
 /* Label for 'video call' button in contact view. */
-"ACTION_VIDEO_CALL" = "Runhare rwe Vhidhiyo";
-
-/* A label for the 'add by phone number' button in the 'add group member' view */
-"ADD_GROUP_MEMBER_VIEW_BUTTON" = "Isa";
-
-/* Title for the 'add contact' section of the 'add group member' view. */
-"ADD_GROUP_MEMBER_VIEW_CONTACT_TITLE" = "Isa kontact";
-
-/* Title for the 'add by phone number' section of the 'add group member' view. */
-"ADD_GROUP_MEMBER_VIEW_PHONE_NUMBER_TITLE" = "Wedzera nenhamba yerunhare";
-
-/* Title for the 'add group member' view. */
-"ADD_GROUP_MEMBER_VIEW_TITLE" = "Wedzera nhengo";
+"ACTION_VIDEO_CALL" = "Runhare rweVideo";
 
 /* Message shown in conversation view that offers to share your profile with a group. */
-"ADD_GROUP_TO_PROFILE_WHITELIST_OFFER" = "Uri kuda kugovera profile yako nechikwata ichi?";
+"ADD_GROUP_TO_PROFILE_WHITELIST_OFFER" = "Uri kuda kugovera profile yako nechikwata ichi here?";
 
 /* Message shown in conversation view that offers to add an unknown user to your phone's contacts. */
-"ADD_TO_CONTACTS_OFFER" = "Uri kuda kuisa mushandisi uyu mumakontakt ako?";
+"ADD_TO_CONTACTS_OFFER" = "Uri kuda kuisa mushandisi uyu mumacontacts ako here?";
 
 /* Message shown in conversation view that offers to share your profile with a user. */
-"ADD_USER_TO_PROFILE_WHITELIST_OFFER" = "Ukuda kugovera profile yako nemushandisi uyu here?";
+"ADD_USER_TO_PROFILE_WHITELIST_OFFER" = "Uri kuda kugovera profile yako nemushandisi uyu here?";
 
 /* The label for the 'discard' button in alerts and action sheets. */
 "ALERT_DISCARD_BUTTON" = "Rasa";
@@ -60,10 +69,19 @@
 "APN_Message" = "Tsamba itsva!";
 
 /* Message for the 'app launch failed' alert. */
-"APP_LAUNCH_FAILURE_ALERT_MESSAGE" = "Signal haisi kusimuka.Tapota tumira debug log ku support@signal.org kuti tironde dambudziko iri.";
+"APP_LAUNCH_FAILURE_ALERT_MESSAGE" = "Signal haisi kusimuka. Tapota tumira debug log ku support@signal.org kuti tironde dambudziko iri.";
 
 /* Title for the 'app launch failed' alert. */
 "APP_LAUNCH_FAILURE_ALERT_TITLE" = "Pakanganiswa";
+
+/* Error indicating that the app could not launch because the database could not be loaded. */
+"APP_LAUNCH_FAILURE_COULD_NOT_LOAD_DATABASE" = "Could Not Load Database";
+
+/* Error indicating that the app could not launch without reverting unknown database migrations. */
+"APP_LAUNCH_FAILURE_INVALID_DATABASE_VERSION_MESSAGE" = "Please upgrade to the latest version of Signal.";
+
+/* Error indicating that the app could not launch without reverting unknown database migrations. */
+"APP_LAUNCH_FAILURE_INVALID_DATABASE_VERSION_TITLE" = "Unknown Database Version.";
 
 /* Text prompting user to edit their profile name. */
 "APP_SETTINGS_EDIT_PROFILE_NAME_PROMPT" = "Nyora zita rako";
@@ -72,19 +90,28 @@
 "APP_UPDATE_NAG_ALERT_DISMISS_BUTTON" = "Kwete izvezvi";
 
 /* Message format for the 'new app version available' alert. Embeds: {{The latest app version number}} */
-"APP_UPDATE_NAG_ALERT_MESSAGE_FORMAT" = "Vhezheni %@ yaapo paApp Store.";
+"APP_UPDATE_NAG_ALERT_MESSAGE_FORMAT" = "Vhezheni %@ yavapo paApp Store.";
 
 /* Title for the 'new app version available' alert. */
-"APP_UPDATE_NAG_ALERT_TITLE" = "Vhezheni itsva yeSignal yavepo";
+"APP_UPDATE_NAG_ALERT_TITLE" = "Vhezheni itsva ye Signal yavepo";
 
 /* Label for the 'update' button in the 'new app version available' alert. */
 "APP_UPDATE_NAG_ALERT_UPDATE_BUTTON" = "Wedzera";
+
+/* Name indicating that the dark theme is enabled. */
+"APPEARANCE_SETTINGS_DARK_THEME_NAME" = "Rima";
+
+/* Name indicating that the light theme is enabled. */
+"APPEARANCE_SETTINGS_LIGHT_THEME_NAME" = "Chiedza";
+
+/* Name indicating that the system theme is enabled. */
+"APPEARANCE_SETTINGS_SYSTEM_THEME_NAME" = "System";
 
 /* Name of application */
 "APPLICATION_NAME" = "Signal";
 
 /* Pressing this button moves a thread from the inbox to the archive */
-"ARCHIVE_ACTION" = "Dura";
+"ARCHIVE_ACTION" = "Isa mudura";
 
 /* No comment provided by engineer. */
 "ATTACHMENT" = "Batanidzwa";
@@ -93,7 +120,13 @@
 "ATTACHMENT_APPROVAL_CAPTION_LENGTH_LIMIT_REACHED" = "Caption limit reached.";
 
 /* placeholder text for an empty captioning field */
-"ATTACHMENT_APPROVAL_CAPTION_PLACEHOLDER" = "Wedzera musoro ";
+"ATTACHMENT_APPROVAL_CAPTION_PLACEHOLDER" = "Wedzera musoro apa";
+
+/* Title for 'caption' mode of the attachment approval view. */
+"ATTACHMENT_APPROVAL_CAPTION_TITLE" = "Musoro wechibatanidzwa";
+
+/* alert text when Signal was unable to save a copy of the attachment to the system photo library */
+"ATTACHMENT_APPROVAL_FAILED_TO_SAVE" = "Failed to Save";
 
 /* Format string for file extension label in call interstitial view */
 "ATTACHMENT_APPROVAL_FILE_EXTENSION_FORMAT" = "Rudzi rwe faira :%@";
@@ -101,8 +134,8 @@
 /* Format string for file size label in call interstitial view. Embeds: {{file size as 'N mb' or 'N kb'}}. */
 "ATTACHMENT_APPROVAL_FILE_SIZE_FORMAT" = "Kukura:%@";
 
-/* One-line label indicating the user can add no more text to the media message field. */
-"ATTACHMENT_APPROVAL_MESSAGE_LENGTH_LIMIT_REACHED" = "Wasvika panoperera tsamba.";
+/* toast alert shown after user taps the 'save' button */
+"ATTACHMENT_APPROVAL_MEDIA_DID_SAVE" = "Saved";
 
 /* Label for 'send' button in the 'attachment approval' dialog. */
 "ATTACHMENT_APPROVAL_SEND_BUTTON" = "Tumira";
@@ -111,13 +144,7 @@
 "ATTACHMENT_DEFAULT_FILENAME" = "Chibatanidzwa";
 
 /* Status label when an attachment download has failed. */
-"ATTACHMENT_DOWNLOADING_STATUS_FAILED" = "Kutora kwaramba.Bata kuti uzame zvakare.";
-
-/* Status label when an attachment is currently downloading */
-"ATTACHMENT_DOWNLOADING_STATUS_IN_PROGRESS" = "Zviri kutorwa...";
-
-/* Status label when an attachment is enqueued, but hasn't yet started downloading */
-"ATTACHMENT_DOWNLOADING_STATUS_QUEUED" = "Yaiswa mumutsara";
+"ATTACHMENT_DOWNLOADING_STATUS_FAILED" = "Kutora kwaramba. Bata kuti uzame zvakare.";
 
 /* The title of the 'attachment error' alert. */
 "ATTACHMENT_ERROR_ALERT_TITLE" = "Pakanganiswa mukutumira chibatanidzwa.";
@@ -126,7 +153,7 @@
 "ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_JPEG" = "Yatadza kushandura mufananidzo";
 
 /* Attachment error message for video attachments which could not be converted to MP4 */
-"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "Video yatadza kuridzwa";
+"ATTACHMENT_ERROR_COULD_NOT_CONVERT_TO_MP4" = "Video yatadza kushandurwa";
 
 /* Attachment error message for image attachments which cannot be parsed */
 "ATTACHMENT_ERROR_COULD_NOT_PARSE_IMAGE" = "Iri kutadza kutsemura mufananidzo.";
@@ -135,7 +162,7 @@
 "ATTACHMENT_ERROR_COULD_NOT_REMOVE_METADATA" = "Yatadza kubvisa metadata pamufananidzo.";
 
 /* Attachment error message for image attachments which could not be resized */
-"ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Yatadza kudzora mufananidzo.";
+"ATTACHMENT_ERROR_COULD_NOT_RESIZE_IMAGE" = "Yatadza kushandura kukura kwe mufananidzo.";
 
 /* Attachment error message for attachments whose data exceed file size limits */
 "ATTACHMENT_ERROR_FILE_SIZE_TOO_LARGE" = "Chibatanidzwa chakakurisa.";
@@ -150,19 +177,37 @@
 "ATTACHMENT_ERROR_MISSING_DATA" = "Chibatanidzwa hachina chinhu";
 
 /* Accessibility hint describing what you can do with the attachment button */
-"ATTACHMENT_HINT" = "Sarudza kana kutora mufananidzo wobva watumira";
+"ATTACHMENT_HINT" = "Choose Media to Send";
+
+/* A button to open the camera from the Attachment Keyboard */
+"ATTACHMENT_KEYBOARD_CAMERA" = "Kamera";
+
+/* A button to select a contact from the Attachment Keyboard */
+"ATTACHMENT_KEYBOARD_CONTACT" = "Contact";
+
+/* A button to select a file from the Attachment Keyboard */
+"ATTACHMENT_KEYBOARD_FILE" = "File";
+
+/* A button to select a GIF from the Attachment Keyboard */
+"ATTACHMENT_KEYBOARD_GIF" = "GIF";
+
+/* A button to select a location from the Attachment Keyboard */
+"ATTACHMENT_KEYBOARD_LOCATION" = "Location";
+
+/* A string indicating to the user that they'll be able to send photos from this view once they enable photo access. */
+"ATTACHMENT_KEYBOARD_NO_PHOTO_ACCESS" = "Grant access to your photos in settings to send them here.";
+
+/* A string indicating to the user that once they take photos, they'll be able to send them from this view. */
+"ATTACHMENT_KEYBOARD_NO_PHOTOS" = "Once you’ve taken photos, you’ll be able to send your recents here.";
 
 /* Accessibility label for attaching photos */
 "ATTACHMENT_LABEL" = "Chibatanidzwa";
-
-/* attachment menu option to send contact */
-"ATTACHMENT_MENU_CONTACT_BUTTON" = "Kontakt";
 
 /* Alert title when picking a document fails for an unknown reason */
 "ATTACHMENT_PICKER_DOCUMENTS_FAILED_ALERT_TITLE" = "Yatadza kusarudza gwaro";
 
 /* Alert body when picking a document fails because user picked a directory/bundle */
-"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Tapota gadzira dura rakadzvanywa re faira rino kana dhairektori wozori tumira. ";
+"ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_BODY" = "Tapota gadzira dura rakadzvanywa re faira kana dhairekitori rino wozozama kuritumira. ";
 
 /* Alert title when picking a document fails because user picked a directory/bundle */
 "ATTACHMENT_PICKER_DOCUMENTS_PICKED_DIRECTORY_FAILED_ALERT_TITLE" = "Faira haritsigirwe";
@@ -170,10 +215,13 @@
 /* Short text label for a voice message attachment, used for thread preview and on the lock screen */
 "ATTACHMENT_TYPE_VOICE_MESSAGE" = "Tsamba yezwi";
 
+/* A string indicating that an audio message is playing. */
+"AUDIO_ACTIVITY_PLAYBACK_NAME_AUDIO_MESSAGE" = "Audio Message";
+
 /* action sheet button title to enable built in speaker during a call */
 "AUDIO_ROUTE_BUILT_IN_SPEAKER" = "Tepfenura";
 
-/* button text for back button */
+/* return to the previous screen */
 "BACK_BUTTON" = "Dzoka";
 
 /* Error indicating the backup export could not export the user's data. */
@@ -276,19 +324,19 @@
 "BLOCK_LIST_VIEW_BLOCKED_GROUP_ALERT_TITLE" = "Boka raka vharirwa";
 
 /* The message of the 'You can't block yourself' alert. */
-"BLOCK_LIST_VIEW_CANT_BLOCK_SELF_ALERT_MESSAGE" = "Haukwanise kuzvivharisa.";
+"BLOCK_LIST_VIEW_CANT_BLOCK_SELF_ALERT_MESSAGE" = "Haukwanise kuzvivharira.";
 
 /* The title of the 'You can't block yourself' alert. */
 "BLOCK_LIST_VIEW_CANT_BLOCK_SELF_ALERT_TITLE" = "Pakanganiswa";
 
 /* Alert title after unblocking a group or 1:1 chat. Embeds the {{conversation title}}. */
-"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "%@ avhariswa.";
+"BLOCK_LIST_VIEW_UNBLOCKED_ALERT_TITLE_FORMAT" = "%@ avhurirwa.";
 
 /* Alert body after unblocking a group. */
 "BLOCK_LIST_VIEW_UNBLOCKED_GROUP_ALERT_BODY" = "Nhengo dzeboka dzave kugona kukuwedzera zvakare.";
 
 /* Action sheet that will block an unknown user. */
-"BLOCK_OFFER_ACTIONSHEET_BLOCK_ACTION" = "Vharira";
+"BLOCK_OFFER_ACTIONSHEET_BLOCK_ACTION" = "Vhara";
 
 /* Title format for action sheet that offers to block an unknown user.Embeds {{the unknown user's name or phone number}}. */
 "BLOCK_OFFER_ACTIONSHEET_TITLE_FORMAT" = "Vharira %@?";
@@ -302,14 +350,17 @@
 /* Label for generic done button. */
 "BUTTON_DONE" = "Zvaita";
 
-/* Label for redo button. */
-"BUTTON_REDO" = "Redo";
+/* Label for the 'next' button. */
+"BUTTON_NEXT" = "Zvinoteera";
+
+/* Label for the 'okay' button. */
+"BUTTON_OKAY" = "Okay";
 
 /* Button text to enable batch selection mode */
 "BUTTON_SELECT" = "Sarudza";
 
-/* Label for undo button. */
-"BUTTON_UNDO" = "Undo";
+/* Label for the 'submit' button. */
+"BUTTON_SUBMIT" = "Endesa";
 
 /* Label for button that lets users call a contact again. */
 "CALL_AGAIN_BUTTON_TITLE" = "Chaya zvakare";
@@ -321,19 +372,19 @@
 "CALL_AUDIO_PERMISSION_TITLE" = "Mvumo yekushandisa chitauriso irikudiwa";
 
 /* notification body */
-"CALL_INCOMING_NOTIFICATION_BODY" = "☎️ Incoming Call";
+"CALL_INCOMING_NOTIFICATION_BODY" = "☎️Runhare ruri kupinda";
 
 /* Accessibility label for placing call button */
 "CALL_LABEL" = "Chaya";
 
 /* notification body */
-"CALL_MISSED_BECAUSE_OF_IDENTITY_CHANGE_NOTIFICATION_BODY" = "☎️ Missed call because the caller's safety number changed.";
+"CALL_MISSED_BECAUSE_OF_IDENTITY_CHANGE_NOTIFICATION_BODY" = "☎️ Runhare rwa potswa nekuti nhamba dze muchayi dzekuchengetedza dzashanduka.";
 
 /* notification body */
-"CALL_MISSED_NOTIFICATION_BODY" = "☎️ Missed Call";
+"CALL_MISSED_NOTIFICATION_BODY" = "☎️Runhare rwapotswa";
 
 /* Call setup status label after outgoing call times out */
-"CALL_SCREEN_STATUS_NO_ANSWER" = "Hapana mhinduro";
+"CALL_SCREEN_STATUS_NO_ANSWER" = "Hapana kudairwa";
 
 /* embeds {{Call Status}} in call screen label. For ongoing calls, {{Call Status}} is a seconds timer like 01:23, otherwise {{Call Status}} is a short text like 'Ringing', 'Busy', or 'Failed Call' */
 "CALL_STATUS_FORMAT" = "Signal %@";
@@ -355,6 +406,9 @@
 
 /* Accessibility label for declining incoming calls */
 "CALL_VIEW_DECLINE_INCOMING_CALL_LABEL" = "Ramba runhare ruri kupinda";
+
+/* tooltip label when remote party has enabled their video */
+"CALL_VIEW_ENABLE_VIDEO_HINT" = "Bata pano kuti ubatidze vhidiyo";
 
 /* Accessibility label for hang up call */
 "CALL_VIEW_HANGUP_LABEL" = "Dzima ";
@@ -392,6 +446,12 @@
 /* The generic name used for calls if CallKit privacy is enabled */
 "CALLKIT_ANONYMOUS_CONTACT_NAME" = "Mushandisi weSignal";
 
+/* Accessibility hint describing what you can do with the camera button */
+"CAMERA_BUTTON_HINT" = "Take a picture and then send it";
+
+/* Accessibility label for camera button. */
+"CAMERA_BUTTON_LABEL" = "Kamera";
+
 /* Message for alert explaining that a user cannot be verified. */
 "CANT_VERIFY_IDENTITY_ALERT_MESSAGE" = "Mushandisi uyu haakwanise kuongororwa kusvika matumirana tsamba naye.";
 
@@ -426,7 +486,7 @@
 "COLOR_PICKER_DEMO_MESSAGE_1" = "Sarudza ruvara rwe tsamba dzinobuda munhaurwa ino.";
 
 /* The second of two messages demonstrating the chosen conversation color, by rendering this message in an incoming message bubble. */
-"COLOR_PICKER_DEMO_MESSAGE_2" = "Only you will see the color you choose.";
+"COLOR_PICKER_DEMO_MESSAGE_2" = "Iwe chete ndiwe unogona kuona ruvara rwawasarudza.";
 
 /* Modal Sheet title when picking a conversation color. */
 "COLOR_PICKER_SHEET_TITLE" = "Ruvara rwe nhaurirano";
@@ -440,8 +500,11 @@
 /* Table section header for group listing when composing a new message */
 "COMPOSE_MESSAGE_GROUP_SECTION_TITLE" = "Zvikwata";
 
-/* Table section header for invite listing when composing a new message */
-"COMPOSE_MESSAGE_INVITE_SECTION_TITLE" = "Koka";
+/* Table section header for phone number search when composing a new message */
+"COMPOSE_MESSAGE_PHONE_NUMBER_SEARCH_SECTION_TITLE" = "Phone number search";
+
+/* Table section header for username search when composing a new message */
+"COMPOSE_MESSAGE_USERNAME_SEARCH_SECTION_TITLE" = "Username search";
 
 /* Multi-line label explaining why compose-screen contact picker is empty. */
 "COMPOSE_SCREEN_MISSING_CONTACTS_PERMISSION" = "You can enable contacts access in the iOS Settings app to see which of your contacts are Signal users.";
@@ -467,13 +530,13 @@
 /* Action sheet title presented when a user's SN has recently changed. Embeds {{contact's name or phone number}} */
 "CONFIRM_SENDING_TO_CHANGED_IDENTITY_TITLE_FORMAT" = "Nhamba yeku chengetedza ina %@ yashanduka";
 
-/* Generic button text to proceed with an action */
+/* No comment provided by engineer. */
 "CONFIRMATION_TITLE" = "Tsinhira";
 
 /* Label for a contact's postal address. */
 "CONTACT_ADDRESS" = "Adhiresi";
 
-/* An indicator that a contact has been blocked. */
+/* An indicator that a contact or group has been blocked. */
 "CONTACT_CELL_IS_BLOCKED" = "Yakavharirwa";
 
 /* An indicator that a contact is no longer verified. */
@@ -566,6 +629,30 @@
 /* Title for the 'conversation delete confirmation' alert. */
 "CONVERSATION_DELETE_CONFIRMATION_ALERT_TITLE" = "Dzima nhaurwa?";
 
+/* Momentarily shown to the user when attempting to select more conversations than is allowed. Embeds {{max number of conversations}} that can be selected. */
+"CONVERSATION_PICKER_CAN_SELECT_NO_MORE_CONVERSATIONS" = "You can't select more than %@ conversations.";
+
+/* table section header for section containing groups */
+"CONVERSATION_PICKER_SECTION_GROUPS" = "Zvikwata";
+
+/* table section header for section containing recent conversations */
+"CONVERSATION_PICKER_SECTION_RECENTS" = "Nhaurwa dzamumashure";
+
+/* table section header for section containing contacts */
+"CONVERSATION_PICKER_SECTION_SIGNAL_CONTACTS" = "People";
+
+/* navbar header */
+"CONVERSATION_PICKER_TITLE" = "Choose Recipients";
+
+/* keyboard toolbar label when no messages match the search string */
+"CONVERSATION_SEARCH_NO_RESULTS" = "Hapana chawanikwa";
+
+/* keyboard toolbar label when exactly 1 message matches the search string */
+"CONVERSATION_SEARCH_ONE_RESULT" = "Yawanikwa 1";
+
+/* keyboard toolbar label when more than 1 message matches the search string. Embeds {{number/position of the 'currently viewed' result}} and the {{total number of results}} */
+"CONVERSATION_SEARCH_RESULTS_FORMAT" = "%d ye %d yezvawanikwa";
+
 /* title for conversation settings screen */
 "CONVERSATION_SETTINGS" = "Gadziro dzehutaurwa";
 
@@ -617,11 +704,17 @@
 /* Label for 'new contact' button in conversation settings view. */
 "CONVERSATION_SETTINGS_NEW_CONTACT" = "Ita kontakt itsva";
 
+/* Table cell label in conversation settings which returns the user to the conversation with 'search mode' activated */
+"CONVERSATION_SETTINGS_SEARCH" = "Tsvaga munhaurwa";
+
 /* Label for button that opens conversation settings. */
 "CONVERSATION_SETTINGS_TAP_TO_CHANGE" = "Bata kuti ushandure";
 
 /* Label for button to unmute a thread. */
 "CONVERSATION_SETTINGS_UNMUTE_ACTION" = "Usanyararidze";
+
+/* Indicates that user is in the system contacts list. */
+"CONVERSATION_SETTINGS_VIEW_IS_SYSTEM_CONTACT" = "This user is in your contacts";
 
 /* Indicates that user's profile has been shared with a group. */
 "CONVERSATION_SETTINGS_VIEW_PROFILE_IS_SHARED_WITH_GROUP" = "Chikwata ichi chinokwanisa kuona profile yako";
@@ -661,9 +754,6 @@
 
 /* No comment provided by engineer. */
 "COUNTRYCODE_SELECT_TITLE" = "Sarudza murau wenyika yako";
-
-/* Accessibility label for the create group new group button */
-"CREATE_NEW_GROUP" = "Ita chikwata chitsva";
 
 /* Title for the 'crop/scale image' dialog. */
 "CROP_SCALE_IMAGE_VIEW_TITLE" = "Fambisa wobva wakudza";
@@ -712,9 +802,6 @@
 
 /* Label for the 'email debug log' option of the debug log alert. */
 "DEBUG_LOG_ALERT_OPTION_EMAIL" = "Tumira tsamba kune vanotsigira ";
-
-/* Label for the 'send to last thread' option of the debug log alert. */
-"DEBUG_LOG_ALERT_OPTION_SEND_TO_LAST_THREAD" = "Tumira kunhaurwa yekupedzisira";
 
 /* Label for the 'send to self' option of the debug log alert. */
 "DEBUG_LOG_ALERT_OPTION_SEND_TO_SELF" = "Zvitumire";
@@ -786,12 +873,6 @@
 /* The navbar title for the 'update group' view. */
 "EDIT_GROUP_DEFAULT_TITLE" = "Shandura chikwata";
 
-/* Label for the cell that lets you add a new member to a group. */
-"EDIT_GROUP_MEMBERS_ADD_MEMBER" = "Wedzera...";
-
-/* a title for the members section of the 'new/update group' view. */
-"EDIT_GROUP_MEMBERS_SECTION_TITLE" = "Nhengo";
-
 /* An indicator that a user is a new member of the group. */
 "EDIT_GROUP_NEW_MEMBER_LABEL" = "Vawedzerwa";
 
@@ -816,29 +897,11 @@
 /* subject of email sent to contacts when inviting to install Signal */
 "EMAIL_INVITE_SUBJECT" = "Ngati tame kuenda kuSignal";
 
-/* Body text an existing user sees when viewing an empty archive */
-"EMPTY_ARCHIVE_TEXT" = "You can archive inactive conversations from your Inbox.";
-
-/* Header text an existing user sees when viewing an empty archive */
-"EMPTY_ARCHIVE_TITLE" = "Clean Up Your Conversation List";
-
 /* Full width label displayed when attempting to compose message */
 "EMPTY_CONTACTS_LABEL_LINE1" = "Hapana kontakt yako inoshandisa Signal.";
 
 /* Full width label displayed when attempting to compose message */
 "EMPTY_CONTACTS_LABEL_LINE2" = "Wadii wakoka mumwe munhu?";
-
-/* Body text a new user sees when viewing an empty inbox */
-"EMPTY_INBOX_NEW_USER_TEXT" = "Bata pabhatani rekunyora";
-
-/* Header text a new user sees when viewing an empty inbox */
-"EMPTY_INBOX_NEW_USER_TITLE" = "Tanga nhaurwa yeSignal yekutanga!";
-
-/* Body text an existing user sees when viewing an empty inbox */
-"EMPTY_INBOX_TEXT" = "Hakuna.Zip.Zilch.Nada.";
-
-/* Header text an existing user sees when viewing an empty inbox */
-"EMPTY_INBOX_TITLE" = "Zero muInbox ";
 
 /* Indicates that user should confirm their 'two factor auth pin'. */
 "ENABLE_2FA_VIEW_CONFIRM_PIN_INSTRUCTIONS" = "Tsinhira PIN yako.";
@@ -861,6 +924,12 @@
 /* Error indicating that the entered 'two-factor auth PINs' do not match. */
 "ENABLE_2FA_VIEW_PIN_DOES_NOT_MATCH" = "PIN haienderane.";
 
+/* Error indicating that the entered 'two-factor auth PIN' is too long. */
+"ENABLE_2FA_VIEW_PIN_TOO_LONG" = "PIN can be no longer than 20 digits.";
+
+/* Error indicating that the entered 'two-factor auth PIN' is too short. */
+"ENABLE_2FA_VIEW_PIN_TOO_SHORT" = "PIN must be at least 4 digits.";
+
 /* Indicates that user should select a 'two factor auth pin'. */
 "ENABLE_2FA_VIEW_SELECT_PIN_INSTRUCTIONS" = "Enter a Registration Lock PIN. You will be asked to enter this PIN the next time you register this phone number with Signal.";
 
@@ -879,6 +948,9 @@
 /* Call setup status label */
 "END_CALL_UNCATEGORIZED_FAILURE" = "Nhare yakundikana.";
 
+/* Label indicating that this OS version is no longer supported. */
+"END_OF_LIFE_OS_WARNING" = "The latest Signal features won’t work on this version of iOS. Please upgrade this device to receive future Signal updates.";
+
 /* Error indicating that the phone's contacts could not be retrieved. */
 "ERROR_COULD_NOT_FETCH_CONTACTS" = "MaKontakt haasi kubatika.";
 
@@ -890,9 +962,6 @@
 
 /* Error message indicating that message send failed due to block list */
 "ERROR_DESCRIPTION_MESSAGE_SEND_FAILED_DUE_TO_BLOCK_LIST" = "Yatadza kutumira tsamba kumushandisi nekuti wakamuvharira.";
-
-/* Error message indicating that message send failed due to failed attachment write */
-"ERROR_DESCRIPTION_MESSAGE_SEND_FAILED_DUE_TO_FAILED_ATTACHMENT_WRITE" = "Yatadza kunyora ne kutumira chibatanidzwa.";
 
 /* Generic error used whenever Signal can't contact the server */
 "ERROR_DESCRIPTION_NO_INTERNET" = "Signal yatadza kubata internet.Tapota edza zvakare.";
@@ -920,6 +989,9 @@
 
 /* Error message when attempting to send message */
 "ERROR_DESCRIPTION_UNREGISTERED_RECIPIENT" = "Kontakt iyi haisi yemushandisi weSignal";
+
+/* Error message indicating that attachment download(s) failed. */
+"ERROR_MESSAGE_ATTACHMENT_DOWNLOAD_FAILED" = "Kutora chibatanidzwa kwaramba.";
 
 /* Error message when unable to receive an attachment because the sending client is too old. */
 "ERROR_MESSAGE_ATTACHMENT_FROM_OLD_CLIENT" = "Attachment failure: Ask this contact to send their message again after updating to the latest version of Signal.";
@@ -951,11 +1023,26 @@
 /* No comment provided by engineer. */
 "ERROR_MESSAGE_WRONG_TRUSTED_IDENTITY_KEY" = "Nhamba yekuchengetedza yashanduka.";
 
+/* Error indicating a send failure due to an expired application. */
+"ERROR_SENDING_EXPIRED" = "Your version of Signal has expired. Please update to send further messages.";
+
 /* Format string for 'unregistered user' error. Embeds {{the unregistered user's name or signal id}}. */
 "ERROR_UNREGISTERED_USER_FORMAT" = "Mushandisi asina kunyoreswa:%@";
 
 /* Button to dismiss/ignore the one time splash screen that appears after upgrading */
 "EXPERIENCE_UPGRADE_DISMISS_BUTTON" = "Kwete izvezvi";
+
+/* Button to dismiss/ignore the one time splash screen that appears after upgrading */
+"EXPERIENCE_UPGRADE_LETS_GO_BUTTON" = "Hende";
+
+/* Label notifying the user that the app has expired. */
+"EXPIRATION_ERROR" = "Your version of Signal has expired! Messages will no longer send successfully. Tap to update to the most recent version.";
+
+/* Label warning the user that the app will expire soon. */
+"EXPIRATION_WARNING_SOON" = "Your version of Signal will expire in %d days. Tap to update to the most recent version.";
+
+/* Label warning the user that the app will expire today. */
+"EXPIRATION_WARNING_TODAY" = "Your version of Signal will expire today. Tap to update to the most recent version.";
 
 /* action sheet header when re-sending message which failed because of too many attempts */
 "FAILED_SENDING_BECAUSE_RATE_LIMIT" = "Too many failures with this contact. Please try again later.";
@@ -1071,6 +1158,21 @@
 /* Placeholder text for search bar which filters conversations. */
 "HOME_VIEW_CONVERSATION_SEARCHBAR_PLACEHOLDER" = "Tsvaga";
 
+/* Format string for a label offering to start a new conversation with your contacts, if you have 1 Signal contact.  Embeds {{The name of 1 of your Signal contacts}}. */
+"HOME_VIEW_FIRST_CONVERSATION_OFFER_1_CONTACT_FORMAT" = "Mamwe ma kontakt ako agara ari pa Signal,kusanganisira %@.";
+
+/* Format string for a label offering to start a new conversation with your contacts, if you have 2 Signal contacts.  Embeds {{The names of 2 of your Signal contacts}}. */
+"HOME_VIEW_FIRST_CONVERSATION_OFFER_2_CONTACTS_FORMAT" = "Mamwe ema kontakt ako agara ari mu Signal,kusanganisira %@ ne %@";
+
+/* Format string for a label offering to start a new conversation with your contacts, if you have at least 3 Signal contacts.  Embeds {{The names of 3 of your Signal contacts}}. */
+"HOME_VIEW_FIRST_CONVERSATION_OFFER_3_CONTACTS_FORMAT" = "Mamwe ema kontakt ako agara ari mu Signal,kusanganisira %@, %@ ne %@";
+
+/* A label offering to start a new conversation with your contacts, if you have no Signal contacts. */
+"HOME_VIEW_FIRST_CONVERSATION_OFFER_NO_CONTACTS" = "Tanga nhaurwa yako pano.";
+
+/* Table cell subtitle label for a conversation the user has not accepted. */
+"HOME_VIEW_MESSAGE_REQUEST_CONVERSATION" = "Message Request";
+
 /* Format string when search returns no results. Embeds {{search term}} */
 "HOME_VIEW_SEARCH_NO_RESULTS_FORMAT" = "Hapana mhinduro ye '%@'";
 
@@ -1080,17 +1182,11 @@
 /* Title for the home view's default mode. */
 "HOME_VIEW_TITLE_INBOX" = "Signal";
 
-/* Label for brush button in image editor. */
-"IMAGE_EDITOR_BRUSH_BUTTON" = "Brush";
-
-/* Label for crop button in image editor. */
-"IMAGE_EDITOR_CROP_BUTTON" = "Crop";
-
 /* Momentarily shown to the user when attempting to select more images than is allowed. Embeds {{max number of items}} that can be shared. */
-"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "You can't share more than %@ items.";
+"IMAGE_PICKER_CAN_SELECT_NO_MORE_TOAST_FORMAT" = "Haukwanise kugovera zvinhu zvinopfuura %@.";
 
 /* alert title */
-"IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Failed to select attachment.";
+"IMAGE_PICKER_FAILED_TO_PROCESS_ATTACHMENTS" = "Yatadza kusarudza chibatanidzwa.";
 
 /* Call setup status label */
 "IN_CALL_CONNECTING" = "Yava kubata...";
@@ -1110,6 +1206,9 @@
 /* Label reminding the user that they are in archive mode. */
 "INBOX_VIEW_ARCHIVE_MODE_REMINDER" = "Nhaurwa idzi dzaka pfimbikwa uye dzino onekwa chete wagamuchira tsamba itsva.";
 
+/* Message shown in the home view when the inbox is empty. */
+"INBOX_VIEW_EMPTY_INBOX" = "Give your inbox something to write home about. Get started by messaging a friend.";
+
 /* Multi-line label explaining how to show names instead of phone numbers in your inbox */
 "INBOX_VIEW_MISSING_CONTACTS_PERMISSION" = "You can enable contacts access in the iOS Settings app to see contact names in your Signal conversation list.";
 
@@ -1124,6 +1223,15 @@
 
 /* info message text shown in conversation view */
 "INFO_MESSAGE_MISSED_CALL_DUE_TO_CHANGED_IDENITY" = "Nhare yapotswabekuti nhamba yekuchengetedzwa yashanduka.";
+
+/* Shown in inbox and conversation when a user joins Signal, embeds the new user's {{contact name}} */
+"INFO_MESSAGE_USER_JOINED_SIGNAL_BODY_FORMAT" = "%@ is on Signal!";
+
+/* accessibility label for the button which shows the sticker picker */
+"INPUT_TOOLBAR_STICKER_BUTTON_ACCESSIBILITY_LABEL" = "Stickers";
+
+/* accessibility label for the button which records voice memos */
+"INPUT_TOOLBAR_VOICE_MEMO_BUTTON_ACCESSIBILITY_LABEL" = "Tsamba yezwi";
 
 /* Message for the alert indicating that an audio file is invalid. */
 "INVALID_AUDIO_FILE_ALERT_ERROR_MESSAGE" = "Faira rezwi risina kururama.";
@@ -1194,6 +1302,12 @@
 /* table cell label in conversation settings */
 "LIST_GROUP_MEMBERS_ACTION" = "Nhengo dzeChikwata";
 
+/* A string indicating that the user can search for a location */
+"LOCATION_PICKER_SEARCH_PLACEHOLDER" = "Search by name or address";
+
+/* The title for the location picker view */
+"LOCATION_PICKER_TITLE" = "Select Location";
+
 /* No comment provided by engineer. */
 "LOGGING_SECTION" = "Kuisa mubhuku";
 
@@ -1205,9 +1319,6 @@
 
 /* media picker option to take photo or video */
 "MEDIA_FROM_CAMERA_BUTTON" = "Kamera";
-
-/* action sheet button title when choosing attachment type */
-"MEDIA_FROM_DOCUMENT_PICKER_BUTTON" = "Gwaro";
 
 /* media picker option to choose from library */
 "MEDIA_FROM_LIBRARY_BUTTON" = "Dura remifananidzo";
@@ -1257,7 +1368,7 @@
 /* Label for the recipient name in the 'message approval' dialog. */
 "MESSAGE_APPROVAL_RECIPIENT_LABEL" = "Kuna:";
 
-/* No comment provided by engineer. */
+/* Title for the compose view. */
 "MESSAGE_COMPOSEVIEW_TITLE" = "Tsamba itsva";
 
 /* Label for file size of attachments in the 'message metadata' view. */
@@ -1305,8 +1416,38 @@
 /* Title for the 'message metadata' view. */
 "MESSAGE_METADATA_VIEW_TITLE" = "Tsamba ";
 
+/* A button used to block a user on an incoming message request. */
+"MESSAGE_REQUEST_VIEW_ACCEPT_BUTTON" = "Bvuma";
+
+/* A button used to block a user on an incoming message request. */
+"MESSAGE_REQUEST_VIEW_BLOCK_BUTTON" = "Vhara";
+
+/* A button used to block a user on an incoming message request. */
+"MESSAGE_REQUEST_VIEW_DELETE_BUTTON" = "Dzima";
+
+/* A prompt notifying that the user must share their profile with this conversation. Embeds {{contact name}}. */
+"MESSAGE_REQUEST_VIEW_EXISTING_CONTACT_PROMPT_FORMAT" = "You must share your profile to continue your conversation with %@.";
+
+/* A prompt notifying that the user must share their profile with this group. Embeds {{group name}}. */
+"MESSAGE_REQUEST_VIEW_EXISTING_GROUP_PROMPT_FORMAT" = "You must share your profile to continue your conversation in %@.";
+
+/* A button used to learn more about why you must share your profile. */
+"MESSAGE_REQUEST_VIEW_LEARN_MORE_BUTTON" = "Ziva zvakawanda";
+
+/* A prompt asking if the user wants to accept a conversation invite. Embeds {{contact name}}. */
+"MESSAGE_REQUEST_VIEW_NEW_CONTACT_PROMPT_FORMAT" = "Do you want to let %@ message you? They won’t know you’ve seen their messages until you accept.";
+
+/* A prompt asking if the user wants to accept a group invite. Embeds {{group name}}. */
+"MESSAGE_REQUEST_VIEW_NEW_GROUP_PROMPT_FORMAT" = "Do you want to join the group %@? They won’t know you’ve seen their messages until you accept.";
+
+/* A button used to share your profile with an existing thread. */
+"MESSAGE_REQUEST_VIEW_SHARE_PROFILE_BUTTON" = "Govera profile";
+
 /* message status for message delivered to their recipient. */
 "MESSAGE_STATUS_DELIVERED" = "Yasvitswa";
+
+/* message status while message is downloading. */
+"MESSAGE_STATUS_DOWNLOADING" = "Kututunura ";
 
 /* status message for failed messages */
 "MESSAGE_STATUS_FAILED" = "Kutumira kwakona.";
@@ -1353,9 +1494,6 @@
 /* Indicates that some members of this group has been blocked. Embeds {{the number of blocked users in this group}}. */
 "MESSAGES_VIEW_GROUP_N_MEMBERS_BLOCKED_FORMAT" = "Wavharira Nhengo %@ ye Boka Rino";
 
-/* Text for banner in group conversation view that offers to share your profile with this group. */
-"MESSAGES_VIEW_GROUP_PROFILE_WHITELIST_BANNER" = "Gova profile yako neBoka rino?";
-
 /* Indicates that more than one member of this group conversation is no longer verified. */
 "MESSAGES_VIEW_N_MEMBERS_NO_LONGER_VERIFIED" = "Nhengo inopfuura imwe yeBoka rino haasisina kutarwa seakatariswa.Bata kuti uone zvaungaite.";
 
@@ -1381,6 +1519,12 @@
 /* Alert title
    Alert title when camera is not authorized */
 "MISSING_CAMERA_PERMISSION_TITLE" = "Signal inoda kuwana hupindwa pacamera yako.";
+
+/* Alert body indicating the user has denied location permissios */
+"MISSING_LOCATION_PERMISSION_MESSAGE" = "You can enable this permission in the iOS Settings app.";
+
+/* Alert title indicating the user has denied location permissios */
+"MISSING_LOCATION_PERMISSION_TITLE" = "Signal requires access to your location for this feature.";
 
 /* Alert body when user has previously denied media library access */
 "MISSING_MEDIA_LIBRARY_PERMISSION_MESSAGE" = "You can enable this permission in the iOS Settings app.";
@@ -1416,16 +1560,13 @@
 "NETWORK_STATUS_DEREGISTERED" = "Haisisina kunyoreswa";
 
 /* No comment provided by engineer. */
-"NETWORK_STATUS_HEADER" = "Mamiriro eSignal";
+"NETWORK_STATUS_HEADER" = "Mamiriro emasaisai";
 
 /* No comment provided by engineer. */
 "NETWORK_STATUS_OFFLINE" = "Hausi pamhepo";
 
 /* A label the cell that lets you add a new member to a group. */
 "NEW_CONVERSATION_FIND_BY_PHONE_NUMBER" = "Tsvaga nenhamba dzerunhare";
-
-/* A label for the cell that lets you add a new non-contact member to a group. */
-"NEW_GROUP_ADD_NON_CONTACT" = "Wedzera nenhamba yerunhare";
 
 /* Action Sheet title prompting the user for a group avatar */
 "NEW_GROUP_ADD_PHOTO_ACTION" = "Isa mufananidzo weBoka";
@@ -1440,12 +1581,12 @@
 "NEW_GROUP_MEMBER_LABEL" = "Nhengo";
 
 /* notification title. Embeds {{author name}} and {{group name}} */
-"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ to %@";
+"NEW_GROUP_MESSAGE_NOTIFICATION_TITLE" = "%@ ku %@";
 
 /* Placeholder text for group name field */
 "NEW_GROUP_NAMEGROUP_REQUEST_DEFAULT" = "Ipa zita kuboka rekutaura iri";
 
-/* a title for the non-contacts section of the 'new group' view. */
+/* a title for the selected section of the 'recipient picker' view. */
 "NEW_GROUP_NON_CONTACTS_SECTION_TITLE" = "Vamwe vashandisi";
 
 /* The alert message if user tries to exit the new group view without saving changes. */
@@ -1466,8 +1607,14 @@
 /* Label for a button that lets users search for contacts by phone number */
 "NO_CONTACTS_SEARCH_BY_PHONE_NUMBER" = "Tsvaga makontakt nenhamba yerunhare";
 
+/* A string prompting the user to send a new mesaage to a user */
+"NON_CONTACT_TABLE_CELL_NEW_MESSAGE" = "New message to:";
+
+/* A string asking the user if they'd like to invite a number to signal via SMS. */
+"NON_CONTACT_TABLE_CELL_SEND_SMS" = "No user found. Invite via SMS?";
+
 /* Label for 1:1 conversation with yourself. */
-"NOTE_TO_SELF" = "Note to Self";
+"NOTE_TO_SELF" = "Zvitumire tsamba";
 
 /* Lock screen notification text presented after user powers on their device without unlocking. Embeds {{device model}} (either 'iPad' or 'iPhone') */
 "NOTIFICATION_BODY_PHONE_LOCKED_FORMAT" = "Unogona kunge wagamuchira mashoko %@ apo watangidza.";
@@ -1496,6 +1643,108 @@
 /* No comment provided by engineer. */
 "OK" = "Ndizvo";
 
+/* Label indicating that the 2fa pin is exhausted in the 'onboarding 2fa' view. */
+"ONBOARDING_2FA_ATTEMPTS_EXHAUSTED" = "Incorrect PIN. Attempts exhausted.";
+
+/* The first explanation in the 'onboarding 2FA' view. */
+"ONBOARDING_2FA_EXPLANATION_1" = "This phone number has Registration Lock enabled. Please enter the Registration Lock PIN.";
+
+/* The first explanation in the 'onboarding 2FA' view. */
+"ONBOARDING_2FA_EXPLANATION_2" = "Your Registration Lock PIN is separate from the automated verification code that was sent to your phone during the last step.";
+
+/* Label for the 'forgot 2FA PIN' link in the 'onboarding 2FA' view. */
+"ONBOARDING_2FA_FORGOT_PIN_LINK" = "Forgot your PIN?";
+
+/* Label indicating that the 2fa pin is invalid in the 'onboarding 2fa' view. */
+"ONBOARDING_2FA_INVALID_PIN" = "Incorrect PIN";
+
+/* Label indicating that the 2fa pin is invalid with a retry count other than one in the 'onboarding 2fa' view. */
+"ONBOARDING_2FA_INVALID_PIN_PLURAL_FORMAT" = "Incorrect PIN. %lu attempts remaining.";
+
+/* Label indicating that the 2fa pin is invalid with a retry count of one in the 'onboarding 2fa' view. */
+"ONBOARDING_2FA_INVALID_PIN_SINGLE" = "Incorrect PIN. 1 attempt remaining.";
+
+/* Title of the 'onboarding 2FA' view. */
+"ONBOARDING_2FA_TITLE" = "Registration Lock";
+
+/* Explanation of the 'onboarding account locked' view. */
+"ONBOARDING_ACCOUNT_LOCKED_EXPLANATION" = "To protect your privacy and the security of your account, we’ve locked it for 7 days.\n\nAfter 7 days of inactivity, you’ll be able to reregister this phone number without needing your PIN. All content will be wiped.";
+
+/* Label for the 'learn more' link in the 'onboarding account locked' view. */
+"ONBOARDING_ACCOUNT_LOCKED_LEARN_MORE" = "Learn more about locked accounts";
+
+/* Title of the 'onboarding account locked' view. */
+"ONBOARDING_ACCOUNT_LOCKED_TITLE" = "Account Locked";
+
+/* Title of the 'onboarding Captcha' view. */
+"ONBOARDING_CAPTCHA_TITLE" = "Wedzera kubata kwe munhu kutsamba dzako";
+
+/* Label for the 'give access' button in the 'onboarding permissions' view. */
+"ONBOARDING_PERMISSIONS_ENABLE_PERMISSIONS_BUTTON" = " Gonesa Mvumo";
+
+/* Explanation in the 'onboarding permissions' view. */
+"ONBOARDING_PERMISSIONS_EXPLANATION" = "Ma kontakt ako anotumirwa zvakachengeteka.";
+
+/* Label for the 'not now' button in the 'onboarding permissions' view. */
+"ONBOARDING_PERMISSIONS_NOT_NOW_BUTTON" = "Kwete izvezvi";
+
+/* Title of the 'onboarding permissions' view. */
+"ONBOARDING_PERMISSIONS_TITLE" = "Signal inogona kukuzivisa kana wagamuchira tsamba (uye kuti yabvepi)";
+
+/* Title of the 'onboarding phone number' view. */
+"ONBOARDING_PHONE_NUMBER_TITLE" = "Isa nhamba dze rungare kuti utange";
+
+/* Label indicating that the phone number is invalid in the 'onboarding phone number' view. */
+"ONBOARDING_PHONE_NUMBER_VALIDATION_WARNING" = "Nhamba isina basa";
+
+/* Title of the 'onboarding PIN' view. */
+"ONBOARDING_PIN_EXPLANATION" = "Enter the PIN you created for your account. This is different from your SMS verification code.";
+
+/* Title of the 'onboarding PIN' view. */
+"ONBOARDING_PIN_TITLE" = "Enter your PIN";
+
+/* Link to the 'terms and privacy policy' in the 'onboarding splash' view. */
+"ONBOARDING_SPLASH_TERM_AND_PRIVACY_POLICY" = "Terms & Privacy Policy";
+
+/* Title of the 'onboarding splash' view. */
+"ONBOARDING_SPLASH_TITLE" = "Take privacy with you.\nBe yourself in every message.";
+
+/* Label for the link that lets users change their phone number in the onboarding views. */
+"ONBOARDING_VERIFICATION_BACK_LINK" = "Wrong number?";
+
+/* Format for the label of the 'sent code' label of the 'onboarding verification' view. Embeds {{the time until the code can be resent}}. */
+"ONBOARDING_VERIFICATION_CODE_COUNTDOWN_FORMAT" = "Handina kuwana kodhi (iri mu %@)";
+
+/* action sheet item shown after a number of failures to receive a verificaiton SMS during registration */
+"ONBOARDING_VERIFICATION_EMAIL_SIGNAL_SUPPORT" = "Contact Signal Support";
+
+/* Label indicating that the verification code is incorrect in the 'onboarding verification' view. */
+"ONBOARDING_VERIFICATION_INVALID_CODE" = "Kodhi iyi haisiriyo";
+
+/* Label for link that can be used when the original code did not arrive. */
+"ONBOARDING_VERIFICATION_ORIGINAL_CODE_MISSING_LINK" = "Handina kuwana kodhi";
+
+/* Message for the 'resend code' alert in the 'onboarding verification' view. */
+"ONBOARDING_VERIFICATION_RESEND_CODE_ALERT_MESSAGE" = "Please ensure that you have cellular service and can receive SMS messages.";
+
+/* Title for the 'resend code' alert in the 'onboarding verification' view. */
+"ONBOARDING_VERIFICATION_RESEND_CODE_ALERT_TITLE" = "No code?";
+
+/* Label for the 'resend code by SMS' button in the 'onboarding verification' view. */
+"ONBOARDING_VERIFICATION_RESEND_CODE_BY_SMS_BUTTON" = "Resend Code";
+
+/* Label for the 'resend code by voice' button in the 'onboarding verification' view. */
+"ONBOARDING_VERIFICATION_RESEND_CODE_BY_VOICE_BUTTON" = "Chayai runhare ";
+
+/* Label for link that can be used when the resent code did not arrive. */
+"ONBOARDING_VERIFICATION_RESENT_CODE_MISSING_LINK" = "Still no code?";
+
+/* Format for the title of the 'onboarding verification' view. Embeds {{the user's phone number}}. */
+"ONBOARDING_VERIFICATION_TITLE_DEFAULT_FORMAT" = "Enter the code we sent to %@";
+
+/* Format for the title of the 'onboarding verification' view after the verification code has been resent. Embeds {{the user's phone number}}. */
+"ONBOARDING_VERIFICATION_TITLE_RESENT_FORMAT" = "We just resent a code to %@";
+
 /* Button text which opens the settings app */
 "OPEN_SETTINGS_BUTTON" = "Maseting";
 
@@ -1519,6 +1768,36 @@
 
 /* A display format for oversize text messages. */
 "OVERSIZE_TEXT_DISPLAY_FORMAT" = "%@...";
+
+/* Error indicating that a PDF could not be displayed. */
+"PDF_VIEW_COULD_NOT_RENDER" = "PDF could not be displayed";
+
+/* Navbar title for for PDF view. */
+"PDF_VIEW_TITLE" = "PDF";
+
+/* Label for view-once messages that have invalid content. */
+"PER_MESSAGE_EXPIRATION_INVALID_CONTENT" = "Error handling incoming message";
+
+/* inbox cell and notification text for an already viewed view-once media message. */
+"PER_MESSAGE_EXPIRATION_NOT_VIEWABLE" = "Media Message";
+
+/* Label for outgoing view-once messages. */
+"PER_MESSAGE_EXPIRATION_OUTGOING_MESSAGE" = "Media";
+
+/* inbox cell and notification text for a view-once photo. */
+"PER_MESSAGE_EXPIRATION_PHOTO_PREVIEW" = "Disappearing Photo";
+
+/* inbox cell and notification text for a view-once video. */
+"PER_MESSAGE_EXPIRATION_VIDEO_PREVIEW" = "Disappearing Video";
+
+/* Label for view-once messages indicating that user can tap to view the message's contents. */
+"PER_MESSAGE_EXPIRATION_VIEW_PHOTO" = "Photo";
+
+/* Label for view-once messages indicating that user can tap to view the message's contents. */
+"PER_MESSAGE_EXPIRATION_VIEW_VIDEO" = "Vhidhiyo";
+
+/* Label for view-once messages indicating that the local user has viewed the message's contents. */
+"PER_MESSAGE_EXPIRATION_VIEWED" = "Viewed";
 
 /* A format for a label showing an example phone number. Embeds {{the example phone number}}. */
 "PHONE_NUMBER_EXAMPLE_FORMAT" = "Muenzaniso:%@";
@@ -1559,8 +1838,71 @@
 /* Label for 'Work FAX' phone numbers. */
 "PHONE_NUMBER_TYPE_WORK_FAX" = "Fax yekubasa";
 
+/* alert title, generic error preventing user from capturing a photo */
+"PHOTO_CAPTURE_GENERIC_ERROR" = "Unable to capture image.";
+
+/* alert title */
+"PHOTO_CAPTURE_UNABLE_TO_CAPTURE_IMAGE" = "Unable to capture image.";
+
+/* alert title */
+"PHOTO_CAPTURE_UNABLE_TO_INITIALIZE_CAMERA" = "Failed to configure camera.";
+
 /* label for system photo collections which have no name. */
 "PHOTO_PICKER_UNNAMED_COLLECTION" = "Album risina zita";
+
+/* The bold portion of the explanation in the 'pin creation' view. */
+"PIN_CREATION_BOLD_EXPLANATION" = "There is no way to recover your PIN, so remember it.";
+
+/* Title of the 'pin creation' recreation view. */
+"PIN_CREATION_CHANGING_TITLE" = "Change your PIN";
+
+/* The explanation of confirmation in the 'pin creation' view. */
+"PIN_CREATION_CONFIRMATION_EXPLANATION" = "Confirm your new PIN.";
+
+/* The explanation in the 'pin creation' view. */
+"PIN_CREATION_EXPLANATION" = "Your PIN adds and extra layer of security and backs up your account.";
+
+/* Label indicating that the attempted PIN does not match the first PIN */
+"PIN_CREATION_MISMATCH_ERROR" = "PINs don’t match. Try again.";
+
+/* The placeholder when confirming a pin in the 'pin creation' view. */
+"PIN_CREATION_PIN_CONFIRMATION_PLACEHOLDER" = "Re-enter PIN";
+
+/* The placeholder when creating a pin in the 'pin creation' view. */
+"PIN_CREATION_PIN_CREATION_PLACEHOLDER" = "PIN must be 4+ digits";
+
+/* The bold portion of the re-creation explanation in the 'pin creation' view. */
+"PIN_CREATION_RECREATION_BOLD_EXPLANATION" = "When you’re logged out, there is no way to recover your PIN.";
+
+/* The re-creation explanation in the 'pin creation' view. */
+"PIN_CREATION_RECREATION_EXPLANATION" = "Because you’re still logged in, you can create a new PIN.";
+
+/* Title of the 'pin creation' recreation view. */
+"PIN_CREATION_RECREATION_TITLE" = "Create a new PIN";
+
+/* Title of the 'pin creation' view. */
+"PIN_CREATION_TITLE" = "Create your PIN";
+
+/* Label indicating that the attempted PIN is too long */
+"PIN_CREATION_TOO_LONG_ERROR" = "PIN must be no more than 20 digits.";
+
+/* Label indicating that the attempted PIN is too short */
+"PIN_CREATION_TOO_SHORT_ERROR" = "PIN must be at least 4 digits.";
+
+/* The explanation for the 'pin reminder' dialog. */
+"PIN_REMINDER_EXPLANATION" = "To help you memorize your PIN, we’ll ask you to enter it periodically. We’ll ask less over time.";
+
+/* Text asking if the user forgot their pin for the 'pin reminder' dialog. */
+"PIN_REMINDER_FORGOT_PIN" = "Forgot your PIN?";
+
+/* Label indicating that the attempted PIN does not match the user's PIN */
+"PIN_REMINDER_MISMATCH_ERROR" = "Invalid PIN, try again.";
+
+/* The title for the 'pin reminder' dialog. */
+"PIN_REMINDER_TITLE" = "Enter your Signal PIN";
+
+/* Label indicating that the attempted PIN is too short */
+"PIN_REMINDER_TOO_SHORT_ERROR" = "PIN must be at least 4 digits.";
 
 /* Accessibility label for button to start media playback */
 "PLAY_BUTTON_ACCESSABILITY_LABEL" = "Ridza Media";
@@ -1616,17 +1958,14 @@
 /* No comment provided by engineer. */
 "PROCEED_BUTTON" = "Yenderera";
 
-/* Label text combining the phone number and profile name separated by a simple demarcation character. Phone number should be most prominent. '%1$@' is replaced with {{phone number}} and '%2$@' is replaced with {{profile name}} */
-"PROFILE_NAME_AND_PHONE_NUMBER_LABEL_FORMAT" = "%1$@~%2$@";
-
-/* Prepend a simple marker to differentiate the profile name, embeds the contact's {{profile name}}. */
-"PROFILE_NAME_LABEL_FORMAT" = "~%@";
-
 /* Action Sheet title prompting the user for a profile avatar */
 "PROFILE_VIEW_AVATAR_ACTIONSHEET_TITLE" = "Isa mufananidzo";
 
 /* Label for action that clear's the user's profile avatar */
 "PROFILE_VIEW_CLEAR_AVATAR" = "Bvisa mufananidzo";
+
+/* A string indicating that the user can create a username on the profile view. */
+"PROFILE_VIEW_CREATE_USERNAME" = "Create Username";
 
 /* Error message shown when user tries to update profile with a profile name that is too long. */
 "PROFILE_VIEW_ERROR_PROFILE_NAME_TOO_LONG" = "Zita reprofile yako rakarebesa.";
@@ -1636,9 +1975,6 @@
 
 /* Default text for the profile name field of the profile view. */
 "PROFILE_VIEW_NAME_DEFAULT_TEXT" = "Nyora zita rako";
-
-/* Label for the profile avatar field of the profile view. */
-"PROFILE_VIEW_PROFILE_AVATAR_FIELD" = "Mufananidzo";
 
 /* Description of the user profile. */
 "PROFILE_VIEW_PROFILE_DESCRIPTION" = "Profile yako yeSignal inenge ichionekwa kuma kontakt ako,apo unotanga nhaurwa itsva,uye pauno goverana nevamwe vashandisi nemapoka.";
@@ -1654,6 +1990,9 @@
 
 /* Title for the profile view. */
 "PROFILE_VIEW_TITLE" = "Profile";
+
+/* Label for the username field of the profile view. */
+"PROFILE_VIEW_USERNAME_FIELD" = "Username";
 
 /* Notification action button title */
 "PUSH_MANAGER_MARKREAD" = "Tara seyaverengwa";
@@ -1707,13 +2046,19 @@
 "REGISTER_2FA_FORGOT_PIN" = "Ndakanganwa PIN.";
 
 /* Alert message explaining what happens if you forget your 'two-factor auth pin'. */
-"REGISTER_2FA_FORGOT_PIN_ALERT_MESSAGE" = "Registration of this phone number will be possible without your Registration Lock PIN after 7 days have passed since the phone number was last active on Signal.";
+"REGISTER_2FA_FORGOT_PIN_ALERT_MESSAGE" = "For your privacy and security, there is no way to recover your PIN. If you can’t remember your PIN, you may re-verify with SMS after 7 days of inactivity. In this case, your account will be wiped and all content deleted.";
 
-/* Instructions to enter the 'two-factor auth pin' in the 2FA registration view. */
-"REGISTER_2FA_INSTRUCTIONS" = "This phone number has Registration Lock enabled. Please enter the Registration Lock PIN.\n\nYour Registration Lock PIN is separate from the automated verification code that was sent to your phone during the last step.";
+/* Alert title explaining what happens if you forget your 'two-factor auth pin'. */
+"REGISTER_2FA_FORGOT_PIN_ALERT_TITLE" = "Forgot your PIN?";
 
-/* Title for alert indicating that attempt to register with 'two-factor auth' failed. */
-"REGISTER_2FA_REGISTRATION_FAILED_ALERT_TITLE" = "Kunyoresa kwa Konewa";
+/* Alert message explaining what happens if you get your pin wrong and have multiple attempts remaining 'two-factor auth pin'. */
+"REGISTER_2FA_INVALID_PIN_ALERT_MESSAGE_PLURAL_FORMAT" = "You have %lu attempts remaining. If you run out of attempts your account will be locked. After 7 days of inactivity, you can re-register without your PIN. Your account will be wiped and all content deleted.";
+
+/* Alert message explaining what happens if you get your pin wrong and have one attempt remaining 'two-factor auth pin'. */
+"REGISTER_2FA_INVALID_PIN_ALERT_MESSAGE_SINGLE" = "You have 1 attempt remaining. If you run out of attempts your account will be locked. After 7 days of inactivity, you can re-register without your PIN. Your account will be wiped and all content deleted.";
+
+/* Alert title explaining what happens if you forget your 'two-factor auth pin'. */
+"REGISTER_2FA_INVALID_PIN_ALERT_TITLE" = "Incorrect PIN";
 
 /* Label for 'submit' button in the 2FA registration view. */
 "REGISTER_2FA_SUBMIT_BUTTON" = "Endesa";
@@ -1736,9 +2081,6 @@
 /* Label for the country code field */
 "REGISTRATION_DEFAULT_COUNTRY_NAME" = "Murau wenyika";
 
-/* Navigation title shown when user is re-registering after having enabled registration lock */
-"REGISTRATION_ENTER_LOCK_PIN_NAV_TITLE" = "Registration Lock";
-
 /* Placeholder text for the phone number textfield */
 "REGISTRATION_ENTERNUMBER_DEFAULT_TEXT" = "Pinza nhamba";
 
@@ -1757,15 +2099,6 @@
 /* alert title when registering an iPad */
 "REGISTRATION_IPAD_CONFIRM_TITLE" = "Une akaundi yeSignal?";
 
-/* one line label below submit button on registration screen, which links to an external webpage. */
-"REGISTRATION_LEGAL_TERMS_LINK" = "Terms & Privacy Policy";
-
-/* legal disclaimer, embeds a tappable {{link title}} which is styled as a hyperlink */
-"REGISTRATION_LEGAL_TOP_MATTER_FORMAT" = "Ukanyoresa mudziyo uyu,unobvumira ku%@ yeSignal";
-
-/* embedded in legal topmatter, styled as a link */
-"REGISTRATION_LEGAL_TOP_MATTER_LINK_TITLE" = "Zvisungo";
-
 /* No comment provided by engineer. */
 "REGISTRATION_NON_VALID_NUMBER" = "Mamiriro eNhamba yerunhare haatsigirwe,tapota bata utsigiro.";
 
@@ -1775,9 +2108,6 @@
 /* No comment provided by engineer. */
 "REGISTRATION_RESTRICTED_MESSAGE" = "Uno fanirwa kunyoresa kuti utumire tsamba.";
 
-/* No comment provided by engineer. */
-"REGISTRATION_TITLE_LABEL" = "Nhamba dzako dzerunhare";
-
 /* Alert view title */
 "REGISTRATION_VERIFICATION_FAILED_TITLE" = "Kuwongorora kururama kwaramba";
 
@@ -1786,9 +2116,6 @@
 
 /* Error message indicating that registration failed due to a missing or incorrect 2FA PIN. */
 "REGISTRATION_VERIFICATION_FAILED_WRONG_PIN" = "Incorrect Registration Lock PIN.";
-
-/* No comment provided by engineer. */
-"REGISTRATION_VERIFY_DEVICE" = "Nyoresa";
 
 /* Message of alert indicating that users needs to enter a valid phone number to register. */
 "REGISTRATION_VIEW_INVALID_PHONE_NUMBER_ALERT_MESSAGE" = "Tapota isa nhamba dzerunhare kuti unyorese.";
@@ -1815,13 +2142,13 @@
 "REMINDER_2FA_BODY_HEADER" = "Yeuchidzo:";
 
 /* Alert message explaining what happens if you forget your 'two-factor auth pin' */
-"REMINDER_2FA_FORGOT_PIN_ALERT_MESSAGE" = "Registration Lock inobatsira kuti nhamba dzenhare dzisanyorwe zvausina kubvumira.Ficha iyi inogona kudzimwa pawada muma Seting e Signal.";
+"REMINDER_2FA_FORGOT_PIN_ALERT_MESSAGE" = "Registration Lock inobatsira kuti nhamba dzenhare dzisanyorwe zvausina kubvumira.Ficha iyi inogona kudzimwa pawada mugadziro dzeprivacy dzako dzeSignal.";
 
 /* Navbar title for when user is periodically prompted to enter their registration lock PIN */
 "REMINDER_2FA_NAV_TITLE" = "Enter Your Registration Lock PIN";
 
 /* Alert body after wrong guess for 'two-factor auth pin' reminder activity */
-"REMINDER_2FA_WRONG_PIN_ALERT_BODY" = "You can set a new PIN in your privacy settings.";
+"REMINDER_2FA_WRONG_PIN_ALERT_BODY" = "Unokwanisa kugadzira PIN itsva mugadziro dzePrivacy dzeSignal.";
 
 /* Alert title after wrong guess for 'two-factor auth pin' reminder activity */
 "REMINDER_2FA_WRONG_PIN_ALERT_TITLE" = "PIN iyi haisiriyo.";
@@ -1883,8 +2210,14 @@
 /* Label for button on lock screen that lets users unlock Signal. */
 "SCREEN_LOCK_UNLOCK_SIGNAL" = "Vhura Signal";
 
-/* No comment provided by engineer. */
+/* Placeholder text indicating the user can search for contacts by name, username, or phone number. */
+"SEARCH_BY_NAME_OR_USERNAME_OR_NUMBER_PLACEHOLDER_TEXT" = "Name, username, or number";
+
+/* Placeholder text indicating the user can search for contacts by name or phone number. */
 "SEARCH_BYNAMEORNUMBER_PLACEHOLDER_TEXT" = "Tsvaga nezita kana nhamba";
+
+/* placeholder text in an empty search field */
+"SEARCH_FIELD_PLACE_HOLDER_TEXT" = "Tsvaga";
 
 /* section header for search results that match a contact who doesn't have an existing conversation */
 "SEARCH_SECTION_CONTACTS" = "Mamwe maKontakt";
@@ -1897,9 +2230,6 @@
 
 /* No comment provided by engineer. */
 "SECURE_SESSION_RESET" = "Chikamu chakakwedekerwa chatangiswa.";
-
-/* Label for 'select GIF to attach' action sheet button */
-"SELECT_GIF_BUTTON" = "GIF";
 
 /* Table section header for conversations you haven't recently used. */
 "SELECT_THREAD_TABLE_OTHER_CHATS_TITLE" = "Mamwe makontakt";
@@ -1922,8 +2252,17 @@
 /* Alert body after invite succeeded */
 "SEND_INVITE_SUCCESS" = "Wakoka shamwari dzako kuti vashandise Signal";
 
-/* Text for button to send a Signal invite via SMS. %@ is placeholder for the recipient's phone number. */
-"SEND_INVITE_VIA_SMS_BUTTON_FORMAT" = "Koka neSMS:%@";
+/* alert title when user attempts to leave the send media flow when they have an in-progress album */
+"SEND_MEDIA_ABANDON_TITLE" = "Discard Media?";
+
+/* alert action, confirming the user wants to exit the media flow and abandon any photos they've taken */
+"SEND_MEDIA_CONFIRM_ABANDON_ALBUM" = "Rasa Media";
+
+/* alert action when the user decides not to cancel the media flow after all. */
+"SEND_MEDIA_RETURN_TO_CAMERA" = "Dzokera ku Kamera";
+
+/* alert action when the user decides not to cancel the media flow after all. */
+"SEND_MEDIA_RETURN_TO_MEDIA_LIBRARY" = "Dzokera ku Dura reMedia";
 
 /* No comment provided by engineer. */
 "SEND_SMS_CONFIRM_TITLE" = "Koka shamwari kupfurikidza netsamba isina kukwedekerwa?";
@@ -1933,12 +2272,6 @@
 
 /* Navbar title */
 "SETTINGS_ABOUT" = "Nezve";
-
-/* Title for the 'block contact' section of the 'add to block list' view. */
-"SETTINGS_ADD_TO_BLOCK_LIST_BLOCK_CONTACT_TITLE" = "Vharira kontakt";
-
-/* Title for the 'block phone number' section of the 'add to block list' view. */
-"SETTINGS_ADD_TO_BLOCK_LIST_BLOCK_PHONE_NUMBER_TITLE" = "Vharisa nhamba dzerunhare";
 
 /* Title for the 'add to block list' view. */
 "SETTINGS_ADD_TO_BLOCK_LIST_TITLE" = "Vhara";
@@ -1954,6 +2287,9 @@
 
 /* Table footer for the 'censorship circumvention' section shown when censorship circumvention has been auto-enabled based on local phone number. */
 "SETTINGS_ADVANCED_CENSORSHIP_CIRCUMVENTION_FOOTER_AUTO_ENABLED" = "Kunzvenga kuvharirwa kwabatidzwa maererano nenhamba yerunhare iri paaccount yako.";
+
+/* Table footer for the 'censorship circumvention' section shown when censorship circumvention has been manually disabled. */
+"SETTINGS_ADVANCED_CENSORSHIP_CIRCUMVENTION_FOOTER_MANUALLY_DISABLED" = "You have manually disabled censorship circumvention.";
 
 /* Table footer for the 'censorship circumvention' section shown when the app is not connected to the internet. */
 "SETTINGS_ADVANCED_CENSORSHIP_CIRCUMVENTION_FOOTER_NO_CONNECTION" = "Kunzvenga kuvharirwa kunogona kutangwa kana wakabatira paInternet.";
@@ -1972,6 +2308,15 @@
 
 /* No comment provided by engineer. */
 "SETTINGS_ADVANCED_TITLE" = "Zviripamusoro";
+
+/* table cell label */
+"SETTINGS_ADVANCED_VIEW_ERROR_LOG" = "Error Logs";
+
+/* The title for the theme section in the appearance settings. */
+"SETTINGS_APPEARANCE_THEME_TITLE" = "Chiratidzo";
+
+/* The title for the appearance settings. */
+"SETTINGS_APPEARANCE_TITLE" = "Mamiriro  ";
 
 /* Format string for the default 'Note' sound. Embeds the system {{sound name}}. */
 "SETTINGS_AUDIO_DEFAULT_TONE_LABEL_FORMAT" = "%@ (yawajaira)";
@@ -2085,7 +2430,7 @@
 "SETTINGS_LINK_PREVIEWS" = "Send Link Previews";
 
 /* Footer for setting for enabling & disabling link previews. */
-"SETTINGS_LINK_PREVIEWS_FOOTER" = "Previews are supported for Imgur, Instagram, Reddit, and YouTube links.";
+"SETTINGS_LINK_PREVIEWS_FOOTER" = "Previews are supported for Imgur, Instagram, Pinterest, Reddit, and YouTube links.";
 
 /* Header for setting for enabling & disabling link previews. */
 "SETTINGS_LINK_PREVIEWS_HEADER" = "Link Previews";
@@ -2099,8 +2444,23 @@
 /* table section header */
 "SETTINGS_NOTIFICATION_CONTENT_TITLE" = "Notification Content";
 
+/* When the local device discovers a contact has recently installed signal, the app can generates a message encouraging the local user to say hello. Turning this switch off disables that feature. */
+"SETTINGS_NOTIFICATION_EVENTS_CONTACT_JOINED_SIGNAL" = "Contact Joined Signal";
+
+/* table section header */
+"SETTINGS_NOTIFICATION_EVENTS_SECTION_TITLE" = "Events";
+
 /* No comment provided by engineer. */
 "SETTINGS_NOTIFICATIONS" = "Zviziviso";
+
+/* Footer for the 'PINs' section of the privacy settings. */
+"SETTINGS_PINS_FOOTER" = "Your PIN adds an extra layer of security and backs up your account. You’ll be asked for it when you register your phone number with Signal. If you forget your PIN, you’ll be locked out of your account for 7 days.";
+
+/* Label for the 'pins' item of the privacy settings. */
+"SETTINGS_PINS_ITEM" = "Change your PIN";
+
+/* Title for the 'PINs' section of the privacy settings. */
+"SETTINGS_PINS_TITLE" = "PIN";
 
 /* Label for 'CallKit privacy' preference */
 "SETTINGS_PRIVACY_CALLKIT_PRIVACY_TITLE" = "Ratidza zita nenhamba dzemuchayi";
@@ -2115,7 +2475,7 @@
 "SETTINGS_PRIVACY_CALLKIT_TITLE" = "Kubatana nenhare paiOS";
 
 /* Settings table view cell label */
-"SETTINGS_PRIVACY_TITLE" = "Puraivheti";
+"SETTINGS_PRIVACY_TITLE" = "Privacy";
 
 /* Label for the 'read receipts' setting. */
 "SETTINGS_READ_RECEIPT" = "Zviratidza kuverengwa";
@@ -2252,6 +2612,60 @@
 /* Label for the 'no sound' option that allows users to disable sounds for notifications, etc. */
 "SOUNDS_NONE" = "Hapana";
 
+/* Preview text shown in notifications and home view for sticker messages. */
+"STICKER_MESSAGE_PREVIEW" = "Sticker Message";
+
+/* Tooltip indicating that a sticker pack was installed. */
+"STICKER_PACK_INSTALLED_TOOLTIP" = "Sticker pack installed";
+
+/* Label for a sticker that failed to download. */
+"STICKERS_FAILED_DOWNLOAD" = "Sticker";
+
+/* Label for the 'install sticker pack' button. */
+"STICKERS_INSTALL_BUTTON" = "Install";
+
+/* Title for the 'available built-in stickers' section of the 'manage stickers' view. */
+"STICKERS_MANAGE_VIEW_AVAILABLE_BUILT_IN_PACKS_SECTION_TITLE" = "Signal Artist Series";
+
+/* Title for the 'available known stickers' section of the 'manage stickers' view. */
+"STICKERS_MANAGE_VIEW_AVAILABLE_KNOWN_PACKS_SECTION_TITLE" = "Stickers You Received";
+
+/* Label indicating that one or more known sticker packs failed to load. */
+"STICKERS_MANAGE_VIEW_FAILED_KNOWN_PACKS" = "Some sticker packs failed to load";
+
+/* Title for the 'installed stickers' section of the 'manage stickers' view. */
+"STICKERS_MANAGE_VIEW_INSTALLED_PACKS_SECTION_TITLE" = "Installed Stickers";
+
+/* Label indicating that one or more known sticker packs is loading. */
+"STICKERS_MANAGE_VIEW_LOADING_KNOWN_PACKS" = "Iri kuunzwa...";
+
+/* Label indicating that the user has no installed sticker packs. */
+"STICKERS_MANAGE_VIEW_NO_INSTALLED_PACKS" = "No stickers installed";
+
+/* Label indicating that the user has no known sticker packs. */
+"STICKERS_MANAGE_VIEW_NO_KNOWN_PACKS" = "Stickers from incoming messages will appear here";
+
+/* Title for the 'manage stickers' view. */
+"STICKERS_MANAGE_VIEW_TITLE" = "Stickers";
+
+/* Default title for sticker packs. */
+"STICKERS_PACK_DEFAULT_TITLE" = "Sticker Pack";
+
+/* Error message shown when a sticker pack failed to install. */
+"STICKERS_PACK_INSTALL_FAILED" = "Sticker pack install failed.";
+
+/* Title of the 'share sticker pack' view. */
+"STICKERS_PACK_SHARE_VIEW_TITLE" = "Share Sticker Pack";
+
+/* The default title for the 'sticker pack' view. */
+"STICKERS_PACK_VIEW_DEFAULT_TITLE" = "Sticker Pack";
+
+/* Label indicating that the sticker pack failed to load. */
+"STICKERS_PACK_VIEW_FAILED_TO_LOAD" = "Sticker Pack failed to load";
+
+/* Label for the 'uninstall sticker pack' button. */
+"STICKERS_UNINSTALL_BUTTON" = "Uninstall";
+
 /* Alert body after verifying privacy with {{other user's name}} */
 "SUCCESSFUL_VERIFICATION_DESCRIPTION" = "Nhamba yako yekuchengetedza ina %@ iri kuenderana.Unokwanisa kuratidza kontakt iyi kuti yaongororwa.";
 
@@ -2260,6 +2674,21 @@
 
 /* Label for button to verify a user's safety number. */
 "SYSTEM_MESSAGE_ACTION_VERIFY_SAFETY_NUMBER" = "Cherechedza nhamba yeku chengetedza";
+
+/* The number of members in a group. Embeds {{member count}} */
+"THREAD_DETAILS_GROUP_MEMBER_COUNT_FORMAT" = "%lu members";
+
+/* A string indicating two mutual groups the user shares with this contact and that there are more unlisted. Embeds {{mutual group name}} */
+"THREAD_DETAILS_MORE_MUTUAL_GROUP" = "Member of %@, %@, and %lu additional groups";
+
+/* A string indicating a mutual group the user shares with this contact. Embeds {{mutual group name}} */
+"THREAD_DETAILS_ONE_MUTUAL_GROUP" = "Member of %@";
+
+/* A string indicating three mutual groups the user shares with this contact. Embeds {{mutual group name}} */
+"THREAD_DETAILS_THREE_MUTUAL_GROUP" = "Member of %@, %@, and %@";
+
+/* A string indicating two mutual groups the user shares with this contact. Embeds {{mutual group name}} */
+"THREAD_DETAILS_TWO_MUTUAL_GROUP" = "Member of %@ and %@";
 
 /* {{number of days}} embedded in strings, e.g. 'Alice updated disappearing messages expiration to {{5 days}}'. See other *_TIME_AMOUNT strings */
 "TIME_AMOUNT_DAYS" = "Mazuva %@";
@@ -2312,14 +2741,35 @@
 /* Pressing this button moves an archived thread from the archive back to the inbox */
 "UNARCHIVE_ACTION" = "Bvisa mudura";
 
-/* In Inbox view, last message label for thread with corrupted attachment. */
-"UNKNOWN_ATTACHMENT_LABEL" = "Batanidzwa risingazivikanwe";
-
 /* Message shown in conversation view that offers to block an unknown user. */
 "UNKNOWN_CONTACT_BLOCK_OFFER" = "Munhu uyu haasi mumacontacts,uri kuda kumuvharira here?";
 
 /* Displayed if for some reason we can't determine a contacts phone number *or* name */
 "UNKNOWN_CONTACT_NAME" = "Zita risingazivikanwe";
+
+/* Label for unknown countries. */
+"UNKNOWN_COUNTRY_NAME" = "Unknown Country";
+
+/* Info message recorded in conversation history when local user receives an unknown message from a linked device and needs to upgrade. */
+"UNKNOWN_PROTOCOL_VERSION_NEED_TO_UPGRADE_FROM_LINKED_DEVICE" = "One of your devices sent a message that can't be processed or displayed here because it uses a new Signal feature.";
+
+/* Info message recorded in conversation history when local user receives an unknown message and needs to upgrade. Embeds {{user's name or phone number}}. */
+"UNKNOWN_PROTOCOL_VERSION_NEED_TO_UPGRADE_WITH_NAME_FORMAT" = "%@ sent you a message that can't be processed or displayed because it uses a new Signal feature.";
+
+/* Info message recorded in conversation history when local user receives an unknown message and needs to upgrade. */
+"UNKNOWN_PROTOCOL_VERSION_NEED_TO_UPGRADE_WITHOUT_NAME" = "You received a message that can't be processed or displayed because it uses a new Signal feature.";
+
+/* Label for button that lets users upgrade the app. */
+"UNKNOWN_PROTOCOL_VERSION_UPGRADE_BUTTON" = "Update Signal Now";
+
+/* Info message recorded in conversation history when local user has received an unknown unknown message from a linked device and has upgraded. */
+"UNKNOWN_PROTOCOL_VERSION_UPGRADE_COMPLETE_FROM_LINKED_DEVICE" = "Updated to the latest version of Signal. You can now receive this message type on your device.";
+
+/* Info message recorded in conversation history when local user has received an unknown message and has upgraded. Embeds {{user's name or phone number}}. */
+"UNKNOWN_PROTOCOL_VERSION_UPGRADE_COMPLETE_WITH_NAME_FORMAT" = "You can ask %@ to re-send this message now that you are using an up-to-date version of Signal.";
+
+/* Info message recorded in conversation history when local user has received an unknown message and has upgraded. */
+"UNKNOWN_PROTOCOL_VERSION_UPGRADE_COMPLETE_WITHOUT_NAME" = "You can ask the sender to re-send this message now that you are using an up-to-date version of Signal.";
 
 /* Indicates an unknown or unrecognizable value. */
 "UNKNOWN_VALUE" = "Hazvi zivikanwe";
@@ -2354,89 +2804,74 @@
 /* Title for alert indicating that group members can't be removed. */
 "UPDATE_GROUP_CANT_REMOVE_MEMBERS_ALERT_TITLE" = "Hazvitsigirwe";
 
-/* Description of CallKit to upgrading (existing) users */
-"UPGRADE_EXPERIENCE_CALLKIT_DESCRIPTION" = "Kupindura nhare kubva paskrini rakasungwa zviri nyore ne kubatanidza kuchaya muiOS ";
+/* Button to start a create pin flow from the one time splash screen that appears after upgrading */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_CREATE_BUTTON" = "Create your PIN";
 
-/* button label shown once when when user upgrades app, in context of call kit */
-"UPGRADE_EXPERIENCE_CALLKIT_PRIVACY_SETTINGS_BUTTON" = "Ziva zvakawanza mumasettings ako ekuchengetedza";
+/* Button to open a help document explaining more about why a PIN is required */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_LEARN_MORE_BUTTON" = "Learn more about PINs";
 
-/* Header for upgrade experience */
-"UPGRADE_EXPERIENCE_CALLKIT_TITLE" = "Chingo zvuva kuti upindure";
+/* Body text for PINs migration splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_MIGRATION_DESCRIPTION" = "Your Registration Lock now does more. With PINs you can take your contacts with you when you switch devices.";
 
-/* button label shown one time, after upgrade */
-"UPGRADE_EXPERIENCE_ENABLE_TYPING_INDICATOR_BUTTON" = "Batidza zviratidza kunyora";
+/* Header for PINs migration splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_MIGRATION_TITLE" = "Registration Lock = PIN";
 
-/* Body text for upgrading users */
-"UPGRADE_EXPERIENCE_INTRODUCING_LINK_PREVIEWS_DESCRIPTION" = "Optional link previews are now supported for some of the most popular sites on the Internet.";
+/* Body text for PINs splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_SETUP_DESCRIPTION" = "Add even more security to your account and take your contacts with you when you switch phones.";
 
-/* Subtitle for upgrading users */
-"UPGRADE_EXPERIENCE_INTRODUCING_LINK_PREVIEWS_SUBTITLE" = "You can disable or enable this feature anytime in your Signal settings (Privacy > Send link previews).";
+/* Header for PINs splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_SETUP_TITLE" = "Introducing PINs";
 
-/* Header for upgrading users */
-"UPGRADE_EXPERIENCE_INTRODUCING_LINK_PREVIEWS_TITLE" = "Link Previews";
+/* Button to open a help document explaining more about why a PIN is required */
+"UPGRADE_EXPERIENCE_INTRODUCING_PINS_WHY_BUTTON" = "Do I have to create a PIN?";
 
-/* Description for notification audio customization */
-"UPGRADE_EXPERIENCE_INTRODUCING_NOTIFICATION_AUDIO_DESCRIPTION" = "Wave kukwanisa kusarudza toni kana toni pa nhaurwa yega yega,uye nhare inoteedzera toni yawasarudza pa kontakt yega yega.";
+/* Body text for stickers splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_STICKERS_DESCRIPTION" = "Why use words when you can use stickers? Tap this icon on your keyboard:";
 
-/* button label shown one time, after upgrade */
-"UPGRADE_EXPERIENCE_INTRODUCING_NOTIFICATION_AUDIO_SETTINGS_BUTTON" = "Ongorora maSeting eKuziviswa";
-
-/* Header for upgrade experience */
-"UPGRADE_EXPERIENCE_INTRODUCING_NOTIFICATION_AUDIO_TITLE" = "Shandura matoni enhare ne tsamba ";
-
-/* button label shown one time, after user upgrades app */
-"UPGRADE_EXPERIENCE_INTRODUCING_PROFILES_BUTTON" = "Gadzira profile yako";
-
-/* Description of new profile feature for upgrading (existing) users */
-"UPGRADE_EXPERIENCE_INTRODUCING_PROFILES_DESCRIPTION" = "Waakukwanisa kugoverana mufananidzo nezita neshamwari dzako paSignal";
-
-/* Header for upgrade experience */
-"UPGRADE_EXPERIENCE_INTRODUCING_PROFILES_TITLE" = "Wagadzirira here kuratidzwa zvitsva?";
-
-/* Description of new profile feature for upgrading (existing) users */
-"UPGRADE_EXPERIENCE_INTRODUCING_READ_RECEIPTS_DESCRIPTION" = "Waane mukana wekuona nekugova kana tsamba dzaverengwa";
-
-/* button label shown one time, after upgrade */
-"UPGRADE_EXPERIENCE_INTRODUCING_READ_RECEIPTS_PRIVACY_SETTINGS" = "Vhura zviratidza kuverengwa muma settings ako ekuchengetedza";
-
-/* Header for upgrade experience */
-"UPGRADE_EXPERIENCE_INTRODUCING_READ_RECEIPTS_TITLE" = "Kuchingamidza zvitaridza kuverengwa";
-
-/* Body text for upgrading users */
-"UPGRADE_EXPERIENCE_INTRODUCING_TYPING_INDICATORS_DESCRIPTION" = "Wave kukwanisa kuona ne kugova apo tsamba inenge ichinyorwa.";
-
-/* Header for upgrading users */
-"UPGRADE_EXPERIENCE_INTRODUCING_TYPING_INDICATORS_TITLE" = "Kuchingamidza zviratidza kunyora";
-
-/* Description of video calling to upgrading (existing) users */
-"UPGRADE_EXPERIENCE_VIDEO_DESCRIPTION" = "Signal yaaku tsigira kuchaya nevhidhiyo kwakachengetedzwa.Ingo tanga kuchaya samazuva ese wobva wabata bhatani rekamera motaura";
-
-/* Header for upgrade experience */
-"UPGRADE_EXPERIENCE_VIDEO_TITLE" = "Ndeipi kunhare dzemavhidhiyo kwakachengetedzwa!";
+/* Header for stickers splash screen */
+"UPGRADE_EXPERIENCE_INTRODUCING_STICKERS_TITLE" = "Introducing Stickers";
 
 /* Message for the alert indicating that user should upgrade iOS. */
-"UPGRADE_IOS_ALERT_MESSAGE" = "Signal inoda iOS 9 kana mberi.Tapota shandisa Software Update muapp yema setting.";
+"UPGRADE_IOS_ALERT_MESSAGE" = "Signal will soon require iOS 10 or later. Please upgrade in Settings app >> General >> Software Update.";
 
 /* Title for the alert indicating that user should upgrade iOS. */
 "UPGRADE_IOS_ALERT_TITLE" = "Wedzera iOS";
 
-/* button text for back button on verification view */
-"VERIFICATION_BACK_BUTTON" = "Dzoka";
+/* An explanation of how usernames work on the username view. */
+"USERNAME_DESCRIPTION" = "Usernames on Signal are optional. If you choose to create a username other Signal users will be able to find you by this username and contact you without knowing your phone number.";
 
-/* Text field placeholder for SMS verification code during registration */
-"VERIFICATION_CHALLENGE_DEFAULT_TEXT" = "Murau wekuongorora kururama";
+/* Label for the username field in the username view. */
+"USERNAME_FIELD" = "Username";
 
-/* button text during registration to request phone number verification be done via phone call */
-"VERIFICATION_CHALLENGE_SEND_VIA_VOICE" = "Chayai runhare ";
+/* An error indicating that the supplied username contains disallowed characters. */
+"USERNAME_INVALID_CHARACTERS_ERROR" = "Usernames may only contain a-z, 0-9, and _";
 
-/* button text during registration to request another SMS code be sent */
-"VERIFICATION_CHALLENGE_SUBMIT_AGAIN" = "Tumira zvakare neSMS";
+/* A message indicating that username lookup failed. */
+"USERNAME_LOOKUP_ERROR" = "An error occured while looking up the username. Please try again later.";
 
-/* button text during registration to submit your SMS verification code. */
-"VERIFICATION_CHALLENGE_SUBMIT_CODE" = "Endesa";
+/* A message indicating that the given username is not a registered signal account. Embeds {{username}} */
+"USERNAME_NOT_FOUND_FORMAT" = "%@ is not a Signal user. Make sure you’ve entered the complete username.";
 
-/* Label indicating the phone number currently being verified. */
-"VERIFICATION_PHONE_NUMBER_FORMAT" = "Isa kodhi yekuvherifaya yatakutumira pa%@.";
+/* A message indicating that the given username was not registered with signal. */
+"USERNAME_NOT_FOUND_TITLE" = "User Not Found";
+
+/* The placeholder for the username text entry in the username view. */
+"USERNAME_PLACEHOLDER" = "Enter a username";
+
+/* A prefix appeneded to all usernames when displayed */
+"USERNAME_PREFIX" = "@";
+
+/* The title for the username view. */
+"USERNAME_TITLE" = "Username";
+
+/* An error indicating that the supplied username is too short. */
+"USERNAME_TOO_SHORT_ERROR" = "Usernames must have at least 4 characters.";
+
+/* An error indicating that the supplied username is in use by another user. Embeds {{requested username}}. */
+"USERNAME_UNAVAIALBE_ERROR_FORMAT" = "%@ is taken.";
+
+/* Error moessage shown when a username update fails. */
+"USERNAME_VIEW_ERROR_UPDATE_FAILED" = "Username update failed.";
 
 /* Format for info message indicating that the verification state was unverified on this device. Embeds {{user's name or phone number}}. */
 "VERIFICATION_STATE_CHANGE_FORMAT_NOT_VERIFIED_LOCAL" = "Waratidza %@ kuti haina kuongororwa.";

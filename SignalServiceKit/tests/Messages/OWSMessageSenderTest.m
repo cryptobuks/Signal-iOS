@@ -2,12 +2,10 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
-#import "OWSMessageSender.h"
-#import "NSError+MessageSending.h"
 #import "OWSDisappearingMessagesConfiguration.h"
 #import "OWSError.h"
 #import "OWSFakeNetworkManager.h"
-#import "OWSPrimaryStorage.h"
+#import "OWSMessageSender.h"
 #import "OWSUploadOperation.h"
 #import "SSKBaseTestObjC.h"
 #import "TSAccountManager.h"
@@ -27,10 +25,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface OWSUploadOperation (Testing)
 
-- (instancetype)initWithAttachmentId:(NSString *)attachmentId
-                        dbConnection:(YapDatabaseConnection *)dbConnection
-                      networkManager:(TSNetworkManager *)networkManager;
-
 @end
 
 #pragma mark -
@@ -39,7 +33,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic) OWSUploadOperation *uploadingService;
 
-- (void)sendMessageToService:(TSOutgoingMessage *)message
+- (void)sendMessageToService:(OutgoingMessagePreparer *)message
                      success:(void (^)(void))successHandler
                      failure:(RetryableFailureHandler)failureHandler;
 
@@ -80,21 +74,6 @@ NS_ASSUME_NONNULL_BEGIN
 #pragma mark -
 
 @implementation OWSFakeUploadingService
-
-- (instancetype)initWithAttachmentId:(NSString *)attachmentId
-                        dbConnection:(YapDatabaseConnection *)dbConnection
-                       shouldSucceed:(BOOL)shouldSucceed
-{
-    self =
-        [super initWithAttachmentId:attachmentId dbConnection:dbConnection networkManager:[OWSFakeNetworkManager new]];
-    if (!self) {
-        return self;
-    }
-
-    _shouldSucceed = shouldSucceed;
-
-    return self;
-}
 
 - (void)uploadAttachmentStream:(TSAttachmentStream *)attachmentStream
                        message:(TSOutgoingMessage *)outgoingMessage
@@ -197,14 +176,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark -
 
-@interface TSAccountManager (Testing)
-
-- (void)storeLocalNumber:(NSString *)localNumber;
-
-@end
-
-#pragma mark -
-
 @interface OWSMessageSenderTest : SSKBaseTestObjC
 
 @property (nonatomic) TSThread *thread;
@@ -256,26 +227,31 @@ NS_ASSUME_NONNULL_BEGIN
                                                                            linkPreview:nil];
     [self.expiringMessage save];
 
-    OWSPrimaryStorage *storageManager = [OWSPrimaryStorage sharedManager];
     OWSFakeContactsManager *contactsManager = [OWSFakeContactsManager new];
 
     // Successful Sending
     TSNetworkManager *successfulNetworkManager = [[OWSMessageSenderFakeNetworkManager alloc] initWithSuccess:YES];
     self.successfulMessageSender = [[OWSMessageSender alloc] initWithNetworkManager:successfulNetworkManager
-                                                                     primaryStorage:primaryStorage
                                                                     contactsManager:contactsManager];
 
     // Unsuccessful Sending
     TSNetworkManager *unsuccessfulNetworkManager = [[OWSMessageSenderFakeNetworkManager alloc] initWithSuccess:NO];
     self.unsuccessfulMessageSender = [[OWSMessageSender alloc] initWithNetworkManager:unsuccessfulNetworkManager
-                                                                       primaryStorage:primaryStorage
                                                                       contactsManager:contactsManager];
 }
 
 - (void)testExpiringMessageTimerStartsOnSuccessWhenDisappearingMessagesEnabled
 {
-    [[[OWSDisappearingMessagesConfiguration alloc] initWithThreadId:self.thread.uniqueId enabled:YES durationSeconds:10]
-        save];
+    [self writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        OWSDisappearingMessagesConfiguration *configuration =
+            [self.thread disappearingMessagesDurationWithTransaction:transaction];
+        configuration = [configuration copyAsEnabledWithDurationSeconds:10];
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        [configuration anyUpsertWithTransaction:transaction];
+#pragma clang diagnostic pop
+    }];
 
     OWSMessageSender *messageSender = self.successfulMessageSender;
 
@@ -305,15 +281,23 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)testExpiringMessageTimerDoesNotStartsWhenDisabled
 {
-    [[[OWSDisappearingMessagesConfiguration alloc] initWithThreadId:self.thread.uniqueId enabled:NO durationSeconds:10]
-        save];
+    [self writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        OWSDisappearingMessagesConfiguration *configuration =
+            [self.thread disappearingMessagesDurationWithTransaction:transaction];
+        configuration = [configuration copyAsEnabledWithDurationSeconds:10];
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        [configuration anyUpsertWithTransaction:transaction];
+#pragma clang diagnostic pop
+    }];
 
     OWSMessageSender *messageSender = self.successfulMessageSender;
 
     XCTestExpectation *messageDidNotStartExpiration = [self expectationWithDescription:@"messageDidNotStartExpiration"];
     [messageSender sendMessageToService:self.unexpiringMessage
         success:^() {
-            if (self.unexpiringMessage.isExpiringMessage || self.unexpiringMessage.expiresAt > 0) {
+            if (self.unexpiringMessage.hasPerConversationExpiration || self.unexpiringMessage.expiresAt > 0) {
                 XCTFail(@"Message expiration was not supposed to start.");
             } else {
                 [messageDidNotStartExpiration fulfill];
@@ -498,11 +482,11 @@ NS_ASSUME_NONNULL_BEGIN
     SignalRecipient *successfulRecipient2 =
         [[SignalRecipient alloc] initWithTextSecureIdentifier:@"successful-recipient-id2" relay:nil];
 
-    TSGroupModel *groupModel = [[TSGroupModel alloc]
-        initWithTitle:@"group title"
-            memberIds:[@[ successfulRecipient.uniqueId, successfulRecipient2.uniqueId ] mutableCopy]
-                image:nil
-              groupId:groupIdData];
+    TSGroupModel *groupModel =
+        [[TSGroupModel alloc] initWithTitle:@"group title"
+                                    members:[@[ successfulRecipient.address, successfulRecipient2.address ] mutableCopy]
+                            groupAvatarData:nil
+                                    groupId:groupIdData];
     TSGroupThread *groupThread = [TSGroupThread getOrCreateThreadWithGroupModel:groupModel];
     TSOutgoingMessage *message = [[TSOutgoingMessage alloc] initWithTimestamp:1
                                                                      inThread:groupThread
@@ -516,7 +500,6 @@ NS_ASSUME_NONNULL_BEGIN
             } else {
                 XCTFail(@"Unexpected message state");
             }
-
         }
         failure:^(NSError *_Nonnull error) {
             XCTFail(@"sendMessage should not fail.");
@@ -533,7 +516,7 @@ NS_ASSUME_NONNULL_BEGIN
     OWSMessageSender *messageSender = self.successfulMessageSender;
 
     NSError *error;
-    NSArray<SignalRecipient *> *recipients = [messageSender getRecipients:@[ recipient.uniqueId ] error:&error];
+    NSArray<SignalRecipient *> *recipients = [messageSender getRecipients:@[ recipient.address ] error:&error];
 
     XCTAssertNil(error);
     XCTAssertEqualObjects(recipient, recipients.firstObject);

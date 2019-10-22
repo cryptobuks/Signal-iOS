@@ -8,6 +8,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // If mimeType is non-nil, we ensure that the magic numbers agree with the
 // mimeType.
++ (BOOL)ows_isValidImageAtUrl:(NSURL *)fileUrl mimeType:(nullable NSString *)mimeType;
 + (BOOL)ows_isValidImageAtPath:(NSString *)filePath;
 + (BOOL)ows_isValidImageAtPath:(NSString *)filePath mimeType:(nullable NSString *)mimeType;
 - (BOOL)ows_isValidImage;
@@ -19,6 +20,10 @@ NS_ASSUME_NONNULL_BEGIN
 + (CGSize)imageSizeForFilePath:(NSString *)filePath mimeType:(NSString *)mimeType;
 
 + (BOOL)hasAlphaForValidImageFilePath:(NSString *)filePath;
+
+- (nullable UIImage *)stillForWebpData;
+
+- (BOOL)ows_isValidGroupAvatarPng;
 
 @end
 

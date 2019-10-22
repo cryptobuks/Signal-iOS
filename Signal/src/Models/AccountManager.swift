@@ -19,17 +19,6 @@ public class AccountManager: NSObject {
         return OWSProfileManager.shared()
     }
 
-    // MARK: -
-
-    @objc
-    public override init() {
-        super.init()
-
-        SwiftSingletons.register(self)
-    }
-
-    // MARK: - Dependencies
-
     private var networkManager: TSNetworkManager {
         return SSKEnvironment.shared.networkManager
     }
@@ -42,15 +31,92 @@ public class AccountManager: NSObject {
         return TSAccountManager.sharedInstance()
     }
 
-    // MARK: registration
-
-    @objc func registerObjc(verificationCode: String,
-                            pin: String?) -> AnyPromise {
-        return AnyPromise(register(verificationCode: verificationCode, pin: pin))
+    private var accountServiceClient: AccountServiceClient {
+        return SSKEnvironment.shared.accountServiceClient
     }
 
-    func register(verificationCode: String,
-                  pin: String?) -> Promise<Void> {
+    var pushRegistrationManager: PushRegistrationManager {
+        return AppEnvironment.shared.pushRegistrationManager
+    }
+
+    // MARK: -
+
+    @objc
+    public override init() {
+        super.init()
+
+        SwiftSingletons.register(self)
+
+        AppReadiness.runNowOrWhenAppDidBecomeReady {
+            if self.tsAccountManager.isRegistered {
+                self.recordUuidIfNecessary()
+            }
+        }
+    }
+
+    // MARK: registration
+
+    @objc
+    func requestAccountVerificationObjC(recipientId: String, captchaToken: String?, isSMS: Bool) -> AnyPromise {
+        return AnyPromise(requestAccountVerification(recipientId: recipientId, captchaToken: captchaToken, isSMS: isSMS))
+    }
+
+    func requestAccountVerification(recipientId: String, captchaToken: String?, isSMS: Bool) -> Promise<Void> {
+        let transport: TSVerificationTransport = isSMS ? .SMS : .voice
+
+        return firstly { () -> Promise<String?> in
+            guard !self.tsAccountManager.isRegistered else {
+                throw OWSErrorMakeAssertionError("requesting account verification when already registered")
+            }
+
+            self.tsAccountManager.phoneNumberAwaitingVerification = recipientId
+
+            return self.getPreauthChallenge(recipientId: recipientId)
+        }.then { (preauthChallenge: String?) -> Promise<Void> in
+            self.accountServiceClient.requestVerificationCode(recipientId: recipientId,
+                                                              preauthChallenge: preauthChallenge,
+                                                              captchaToken: captchaToken,
+                                                              transport: transport)
+        }
+    }
+
+    func getPreauthChallenge(recipientId: String) -> Promise<String?> {
+        return firstly {
+            return self.pushRegistrationManager.requestPushTokens()
+        }.then { (_: String, voipToken: String) -> Promise<String?> in
+            let (pushPromise, pushResolver) = Promise<String>.pending()
+            self.pushRegistrationManager.preauthChallengeResolver = pushResolver
+
+            return self.accountServiceClient.requestPreauthChallenge(recipientId: recipientId, pushToken: voipToken).then { () -> Promise<String?> in
+                let timeout: TimeInterval
+                if OWSIsDebugBuild() && IsUsingProductionService() {
+                    // won't receive production voip in debug build, don't wait for long
+                    timeout = 0.5
+                } else {
+                    timeout = 5
+                }
+
+                return pushPromise.nilTimeout(seconds: timeout)
+            }
+        }.recover { (error: Error) -> Promise<String?> in
+            switch error {
+            case PushRegistrationError.pushNotSupported(description: let description):
+                Logger.warn("Push not supported: \(description)")
+            case let networkError as NetworkManagerError:
+                // not deployed to production yet.
+                if networkError.statusCode == 404, IsUsingProductionService() {
+                    Logger.warn("404 while requesting preauthChallenge: \(error)")
+                } else {
+                    fallthrough
+                }
+            default:
+                owsFailDebug("error while requesting preauthChallenge: \(error)")
+            }
+            return Promise.value(nil)
+        }
+    }
+
+    func register(verificationCode: String, pin: String?) -> Promise<Void> {
         guard verificationCode.count > 0 else {
             let error = OWSErrorWithCodeDescription(.userError,
                                                     NSLocalizedString("REGISTRATION_ERROR_BLANK_VERIFICATION_CODE",
@@ -59,8 +125,16 @@ public class AccountManager: NSObject {
         }
 
         Logger.debug("registering with signal server")
-        let registrationPromise: Promise<Void> = firstly {
-            return self.registerForTextSecure(verificationCode: verificationCode, pin: pin)
+        let registrationPromise: Promise<Void> = firstly { () -> Promise<UUID?> in
+            self.registerForTextSecure(verificationCode: verificationCode, pin: pin)
+        }.then { (uuid: UUID?) -> Promise<Void> in
+            assert(!FeatureFlags.allowUUIDOnlyContacts || uuid != nil)
+            self.tsAccountManager.uuidAwaitingVerification = uuid
+            return self.accountServiceClient.updateAttributes()
+        }.then {
+            self.createPreKeys()
+        }.done {
+            self.profileManager.fetchLocalUsersProfile()
         }.then { _ -> Promise<Void> in
             return self.syncPushTokens().recover { (error) -> Promise<Void> in
                 switch error {
@@ -83,13 +157,42 @@ public class AccountManager: NSObject {
         return registrationPromise
     }
 
-    private func registerForTextSecure(verificationCode: String,
-                                       pin: String?) -> Promise<Void> {
-        return Promise { resolver in
+    private func registerForTextSecure(verificationCode: String, pin: String?) -> Promise<UUID?> {
+        let promise = Promise<Any?> { resolver in
             tsAccountManager.verifyAccount(withCode: verificationCode,
                                            pin: pin,
-                                           success: resolver.fulfill,
+                                           success: { responseObject in resolver.fulfill((responseObject)) },
                                            failure: resolver.reject)
+        }
+
+        // TODO UUID: this UUID param should be non-optional when the production service is updated
+        return promise.map { responseObject throws -> UUID? in
+            guard let responseObject = responseObject else {
+                return nil
+            }
+
+            guard let params = ParamParser(responseObject: responseObject) else {
+                owsFailDebug("params was unexpectedly nil")
+                throw OWSErrorMakeUnableToProcessServerResponseError()
+            }
+
+            guard let uuidString: String = try params.optional(key: "uuid") else {
+                return nil
+            }
+
+            guard let uuid = UUID(uuidString: uuidString) else {
+                owsFailDebug("invalid uuidString: \(uuidString)")
+                throw OWSErrorMakeUnableToProcessServerResponseError()
+            }
+
+            return uuid
+        }
+    }
+
+    private func createPreKeys() -> Promise<Void> {
+        return Promise { resolver in
+            TSPreKeyManager.createPreKeys(success: { resolver.fulfill(()) },
+                                          failure: resolver.reject)
         }
     }
 
@@ -111,14 +214,14 @@ public class AccountManager: NSObject {
         return Promise { resolver in
             tsAccountManager.registerForPushNotifications(pushToken: pushToken,
                                                           voipToken: voipToken,
-                                                          success: resolver.fulfill,
+                                                          success: { resolver.fulfill(()) },
                                                           failure: resolver.reject)
         }
     }
 
     func enableManualMessageFetching() -> Promise<Void> {
-        let anyPromise = tsAccountManager.setIsManualMessageFetchEnabled(true)
-        return Promise(anyPromise).asVoid()
+        tsAccountManager.setIsManualMessageFetchEnabled(true)
+        return Promise(tsAccountManager.performUpdateAccountAttributes()).asVoid()
     }
 
     // MARK: Turn Server
@@ -143,5 +246,47 @@ public class AccountManager: NSObject {
                                                     return resolver.reject(error)
             })
         }
+    }
+
+    func recordUuidIfNecessary() {
+        DispatchQueue.global().async {
+            _ = self.ensureUuid().catch { error in
+                // Until we're in a UUID-only world, don't require a
+                // local UUID.
+                if FeatureFlags.allowUUIDOnlyContacts {
+                    owsFailDebug("error: \(error)")
+                }
+                Logger.warn("error: \(error)")
+            }.retainUntilComplete()
+        }
+    }
+
+    func ensureUuid() -> Promise<UUID> {
+        if let existingUuid = tsAccountManager.localUuid {
+            return Promise.value(existingUuid)
+        }
+
+        return accountServiceClient.getUuid().map { uuid in
+            // It's possible this method could be called multiple times, so we check
+            // again if it's been set. We dont bother serializing access since it should
+            // be idempotent.
+            if let existingUuid = self.tsAccountManager.localUuid {
+                assert(existingUuid == uuid)
+                return existingUuid
+            }
+            Logger.info("Recording UUID for legacy user")
+            self.tsAccountManager.recordUuidForLegacyUser(uuid)
+            return uuid
+        }
+    }
+}
+
+extension Promise {
+    func nilTimeout(seconds: TimeInterval) -> Promise<T?> {
+        let timeout: Promise<T?> = after(seconds: seconds).map {
+            return nil
+        }
+
+        return race(self.map { $0 }, timeout)
     }
 }

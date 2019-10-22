@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
@@ -120,6 +120,10 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
         updateContent()
 
         hasLoadedView = true
+    }
+
+    override public var canBecomeFirstResponder: Bool {
+        return true
     }
 
     private func updateMode() {
@@ -320,7 +324,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
             // Show no action buttons for contacts without a phone number.
             break
         case .unknown:
-            let activityIndicator = UIActivityIndicatorView(activityIndicatorStyle: .whiteLarge)
+            let activityIndicator = UIActivityIndicatorView(style: .whiteLarge)
             topView.addSubview(activityIndicator)
             activityIndicator.autoPinEdge(.top, to: .bottom, of: lastView, withOffset: 10)
             activityIndicator.autoHCenterInSuperview()
@@ -428,11 +432,8 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
         button.layoutMargins = .zero
         button.autoSetDimension(.width, toSize: buttonSize, relation: .greaterThanOrEqual)
 
-        let circleView = UIView()
+        let circleView = CircleView(diameter: buttonSize)
         circleView.backgroundColor = Theme.backgroundColor
-        circleView.autoSetDimension(.width, toSize: buttonSize)
-        circleView.autoSetDimension(.height, toSize: buttonSize)
-        circleView.layer.cornerRadius = buttonSize * 0.5
         button.addSubview(circleView)
         circleView.autoPinEdge(toSuperviewEdge: .top)
         circleView.autoHCenterInSuperview()
@@ -540,21 +541,22 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
         let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
         if let e164 = phoneNumber.tryToConvertToE164() {
+            let address = SignalServiceAddress(phoneNumber: e164)
             if contactShare.systemContactsWithSignalAccountPhoneNumbers(contactsManager).contains(e164) {
                 actionSheet.addAction(UIAlertAction(title: NSLocalizedString("ACTION_SEND_MESSAGE",
                                                                              comment: "Label for 'send message' button in contact view."),
                                                     style: .default) { _ in
-                                                        SignalApp.shared().presentConversation(forRecipientId: e164, action: .compose, animated: true)
+                                                        SignalApp.shared().presentConversation(for: address, action: .compose, animated: true)
                 })
                 actionSheet.addAction(UIAlertAction(title: NSLocalizedString("ACTION_AUDIO_CALL",
                                                                              comment: "Label for 'audio call' button in contact view."),
                                                     style: .default) { _ in
-                                                        SignalApp.shared().presentConversation(forRecipientId: e164, action: .audioCall, animated: true)
+                                                        SignalApp.shared().presentConversation(for: address, action: .audioCall, animated: true)
                 })
                 actionSheet.addAction(UIAlertAction(title: NSLocalizedString("ACTION_VIDEO_CALL",
                                                                              comment: "Label for 'video call' button in contact view."),
                                                     style: .default) { _ in
-                                                        SignalApp.shared().presentConversation(forRecipientId: e164, action: .videoCall, animated: true)
+                                                        SignalApp.shared().presentConversation(for: address, action: .videoCall, animated: true)
                 })
             } else {
                 // TODO: We could offer callPhoneNumberWithSystemCall.
@@ -566,7 +568,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
                                                 UIPasteboard.general.string = phoneNumber.phoneNumber
         })
         actionSheet.addAction(OWSAlerts.cancelAction)
-        present(actionSheet, animated: true)
+        presentAlert(actionSheet)
     }
 
     func callPhoneNumberWithSystemCall(phoneNumber: OWSContactPhoneNumber) {
@@ -594,7 +596,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
                                                 UIPasteboard.general.string = email.email
         })
         actionSheet.addAction(OWSAlerts.cancelAction)
-        present(actionSheet, animated: true)
+        presentAlert(actionSheet)
     }
 
     func openEmailInEmailApp(email: OWSContactEmail) {
@@ -624,7 +626,7 @@ class ContactViewController: OWSViewController, ContactShareViewHelperDelegate {
                                                 UIPasteboard.general.string = strongSelf.formatAddressForQuery(address: address)
         })
         actionSheet.addAction(OWSAlerts.cancelAction)
-        present(actionSheet, animated: true)
+        presentAlert(actionSheet)
     }
 
     func openAddressInMaps(address: OWSContactAddress) {

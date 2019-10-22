@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
@@ -13,18 +13,25 @@ public class SignalServiceProfile: NSObject {
         case invalidProfileName(description: String)
     }
 
-    public let recipientId: String
+    public let address: SignalServiceAddress
     public let identityKey: Data
     public let profileNameEncrypted: Data?
+    public let username: String?
     public let avatarUrlPath: String?
     public let unidentifiedAccessVerifier: Data?
     public let hasUnrestrictedUnidentifiedAccess: Bool
 
-    public init(recipientId: String, responseObject: Any?) throws {
-        self.recipientId = recipientId
-
+    public init(address: SignalServiceAddress?, responseObject: Any?) throws {
         guard let params = ParamParser(responseObject: responseObject) else {
             throw ValidationError.invalid(description: "invalid response: \(String(describing: responseObject))")
+        }
+
+        if let address = address {
+            self.address = address
+        } else if let uuidString: String = try params.required(key: "uuid") {
+            self.address = SignalServiceAddress(uuidString: uuidString)
+        } else {
+            throw ValidationError.invalid(description: "response or input missing address")
         }
 
         let identityKeyWithType = try params.requiredBase64EncodedData(key: "identityKey")
@@ -43,6 +50,8 @@ public class SignalServiceProfile: NSObject {
         }
 
         self.profileNameEncrypted = try params.optionalBase64EncodedData(key: "name")
+
+        self.username = try params.optional(key: "username")
 
         let avatarUrlPath: String? = try params.optional(key: "avatar")
         self.avatarUrlPath = avatarUrlPath

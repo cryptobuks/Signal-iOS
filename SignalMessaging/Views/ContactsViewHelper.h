@@ -32,6 +32,8 @@ NS_ASSUME_NONNULL_BEGIN
 @class CNContact;
 @class OWSBlockingManager;
 @class OWSContactsManager;
+@class OWSProfileManager;
+@class SignalServiceAddress;
 
 @interface ContactsViewHelper : NSObject
 
@@ -39,8 +41,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, readonly) OWSContactsManager *contactsManager;
 @property (nonatomic, readonly) OWSBlockingManager *blockingManager;
+@property (nonatomic, readonly) OWSProfileManager *profileManager;
 
-@property (nonatomic, readonly) NSDictionary<NSString *, SignalAccount *> *signalAccountMap;
 @property (nonatomic, readonly) NSArray<SignalAccount *> *signalAccounts;
 
 // Useful to differentiate between having no signal accounts vs. haven't checked yet
@@ -54,34 +56,34 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithDelegate:(id<ContactsViewHelperDelegate>)delegate;
 
-- (nullable SignalAccount *)fetchSignalAccountForRecipientId:(NSString *)recipientId;
-- (SignalAccount *)fetchOrBuildSignalAccountForRecipientId:(NSString *)recipientId;
+- (nullable SignalAccount *)fetchSignalAccountForAddress:(SignalServiceAddress *)address;
+- (SignalAccount *)fetchOrBuildSignalAccountForAddress:(SignalServiceAddress *)address;
 
 // This method is faster than OWSBlockingManager but
 // is only safe to be called on the main thread.
-- (BOOL)isRecipientIdBlocked:(NSString *)recipientId;
+- (BOOL)isSignalServiceAddressBlocked:(SignalServiceAddress *)address;
 
 // This method is faster than OWSBlockingManager but
 // is only safe to be called on the main thread.
 - (BOOL)isThreadBlocked:(TSThread *)thread;
 
 // NOTE: This method uses a transaction.
-- (NSString *)localNumber;
+- (SignalServiceAddress *)localAddress;
 
 - (NSArray<SignalAccount *> *)signalAccountsMatchingSearchString:(NSString *)searchText;
 
 - (void)warmNonSignalContactsCacheAsync;
 - (NSArray<Contact *> *)nonSignalContactsMatchingSearchString:(NSString *)searchText;
 
-- (void)presentContactViewControllerForRecipientId:(NSString *)recipientId
-                                fromViewController:(UIViewController<ContactEditingDelegate> *)fromViewController
-                                   editImmediately:(BOOL)shouldEditImmediately;
+- (void)presentContactViewControllerForAddress:(SignalServiceAddress *)address
+                            fromViewController:(UIViewController<ContactEditingDelegate> *)fromViewController
+                               editImmediately:(BOOL)shouldEditImmediately;
 
 // This method can be used to edit existing contacts.
-- (void)presentContactViewControllerForRecipientId:(NSString *)recipientId
-                                fromViewController:(UIViewController<ContactEditingDelegate> *)fromViewController
-                                   editImmediately:(BOOL)shouldEditImmediately
-                            addToExistingCnContact:(CNContact *_Nullable)cnContact;
+- (void)presentContactViewControllerForAddress:(SignalServiceAddress *)address
+                            fromViewController:(UIViewController<ContactEditingDelegate> *)fromViewController
+                               editImmediately:(BOOL)shouldEditImmediately
+                        addToExistingCnContact:(CNContact *_Nullable)cnContact;
 
 + (void)presentMissingContactAccessAlertControllerFromViewController:(UIViewController *)viewController;
 

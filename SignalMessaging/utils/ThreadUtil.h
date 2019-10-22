@@ -11,15 +11,17 @@ NS_ASSUME_NONNULL_BEGIN
 @class OWSMessageSender;
 @class OWSQuotedReplyModel;
 @class OWSUnreadIndicator;
+@class SDSAnyReadTransaction;
+@class SDSAnyWriteTransaction;
 @class SignalAttachment;
+@class SignalServiceAddress;
+@class StickerInfo;
 @class TSContactThread;
 @class TSGroupThread;
 @class TSInteraction;
 @class TSOutgoingMessage;
 @class TSThread;
-@class YapDatabaseConnection;
 @class YapDatabaseReadTransaction;
-@class YapDatabaseReadWriteTransaction;
 
 @interface ThreadDynamicInteractions : NSObject
 
@@ -44,48 +46,55 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - Durable Message Enqueue
 
-+ (TSOutgoingMessage *)enqueueMessageWithText:(NSString *)text
++ (TSOutgoingMessage *)enqueueMessageWithText:(NSString *)fullMessageText
                                      inThread:(TSThread *)thread
                              quotedReplyModel:(nullable OWSQuotedReplyModel *)quotedReplyModel
                              linkPreviewDraft:(nullable nullable OWSLinkPreviewDraft *)linkPreviewDraft
-                                  transaction:(YapDatabaseReadTransaction *)transaction;
+                                  transaction:(SDSAnyReadTransaction *)transaction;
 
-+ (TSOutgoingMessage *)enqueueMessageWithAttachment:(SignalAttachment *)attachment
-                                           inThread:(TSThread *)thread
-                                   quotedReplyModel:(nullable OWSQuotedReplyModel *)quotedReplyModel;
++ (TSOutgoingMessage *)enqueueMessageWithText:(nullable NSString *)fullMessageText
+                             mediaAttachments:(NSArray<SignalAttachment *> *)attachments
+                                     inThread:(TSThread *)thread
+                             quotedReplyModel:(nullable OWSQuotedReplyModel *)quotedReplyModel
+                             linkPreviewDraft:(nullable nullable OWSLinkPreviewDraft *)linkPreviewDraft
+                                  transaction:(SDSAnyReadTransaction *)transaction;
 
-+ (TSOutgoingMessage *)enqueueMessageWithAttachments:(NSArray<SignalAttachment *> *)attachments
-                                         messageBody:(nullable NSString *)messageBody
-                                            inThread:(TSThread *)thread
-                                    quotedReplyModel:(nullable OWSQuotedReplyModel *)quotedReplyModel;
++ (nullable TSOutgoingMessage *)createUnsentMessageWithText:(nullable NSString *)fullMessageText
+                                           mediaAttachments:(NSArray<SignalAttachment *> *)mediaAttachments
+                                                   inThread:(TSThread *)thread
+                                           quotedReplyModel:(nullable OWSQuotedReplyModel *)quotedReplyModel
+                                           linkPreviewDraft:(nullable nullable OWSLinkPreviewDraft *)linkPreviewDraft
+                                                transaction:(SDSAnyWriteTransaction *)transaction
+                                                      error:(NSError **)error;
 
 + (TSOutgoingMessage *)enqueueMessageWithContactShare:(OWSContact *)contactShare inThread:(TSThread *)thread;
 + (void)enqueueLeaveGroupMessageInThread:(TSGroupThread *)thread;
++ (TSOutgoingMessage *)enqueueMessageWithSticker:(StickerInfo *)stickerInfo inThread:(TSThread *)thread;
 
 #pragma mark - Non-Durable Sending
 
 // Used by SAE and "reply from lockscreen", otherwise we should use the durable `enqueue` counterpart
-+ (TSOutgoingMessage *)sendMessageNonDurablyWithText:(NSString *)text
++ (TSOutgoingMessage *)sendMessageNonDurablyWithText:(NSString *)fullMessageText
                                             inThread:(TSThread *)thread
                                     quotedReplyModel:(nullable OWSQuotedReplyModel *)quotedReplyModel
+                                         transaction:(SDSAnyReadTransaction *)transaction
                                        messageSender:(OWSMessageSender *)messageSender
-                                             success:(void (^)(void))successHandler
-                                             failure:(void (^)(NSError *error))failureHandler;
+                                          completion:(void (^)(NSError *_Nullable error))completion;
 
 // Used by SAE, otherwise we should use the durable `enqueue` counterpart
-+ (TSOutgoingMessage *)sendMessageNonDurablyWithAttachments:(NSArray<SignalAttachment *> *)attachments
-                                                   inThread:(TSThread *)thread
-                                                messageBody:(nullable NSString *)messageBody
-                                           quotedReplyModel:(nullable OWSQuotedReplyModel *)quotedReplyModel
-                                              messageSender:(OWSMessageSender *)messageSender
-                                                 completion:(void (^_Nullable)(NSError *_Nullable error))completion;
++ (TSOutgoingMessage *)sendMessageNonDurablyWithText:(NSString *)fullMessageText
+                                    mediaAttachments:(NSArray<SignalAttachment *> *)attachments
+                                            inThread:(TSThread *)thread
+                                    quotedReplyModel:(nullable OWSQuotedReplyModel *)quotedReplyModel
+                                         transaction:(SDSAnyReadTransaction *)transaction
+                                       messageSender:(OWSMessageSender *)messageSender
+                                          completion:(void (^)(NSError *_Nullable error))completion;
 
 // Used by SAE, otherwise we should use the durable `enqueue` counterpart
 + (TSOutgoingMessage *)sendMessageNonDurablyWithContactShare:(OWSContact *)contactShare
                                                     inThread:(TSThread *)thread
                                                messageSender:(OWSMessageSender *)messageSender
-                                                  completion:(void (^_Nullable)(NSError *_Nullable error))completion;
-
+                                                  completion:(void (^)(NSError *_Nullable error))completion;
 
 #pragma mark - dynamic interactions
 
@@ -110,20 +119,18 @@ NS_ASSUME_NONNULL_BEGIN
 + (ThreadDynamicInteractions *)ensureDynamicInteractionsForThread:(TSThread *)thread
                                                   contactsManager:(OWSContactsManager *)contactsManager
                                                   blockingManager:(OWSBlockingManager *)blockingManager
-                                                     dbConnection:(YapDatabaseConnection *)dbConnection
                                       hideUnreadMessagesIndicator:(BOOL)hideUnreadMessagesIndicator
                                               lastUnreadIndicator:(nullable OWSUnreadIndicator *)lastUnreadIndicator
                                                    focusMessageId:(nullable NSString *)focusMessageId
-                                                     maxRangeSize:(int)maxRangeSize;
-
-+ (BOOL)shouldShowGroupProfileBannerInThread:(TSThread *)thread blockingManager:(OWSBlockingManager *)blockingManager;
+                                                     maxRangeSize:(NSUInteger)maxRangeSize
+                                                      transaction:(SDSAnyReadTransaction *)transaction;
 
 // This method should be called right _before_ we send a message to a thread,
-// since we want to auto-add contact threads to the profile whitelist if the
-// conversation was initiated by the local user.
+// since we want to auto-add any thread to the profile whitelist that was
+// initiated by the local user.
 //
 // Returns YES IFF the thread was just added to the profile whitelist.
-+ (BOOL)addThreadToProfileWhitelistIfEmptyContactThread:(TSThread *)thread;
++ (BOOL)addThreadToProfileWhitelistIfEmptyThreadWithSneakyTransaction:(TSThread *)thread;
 
 #pragma mark - Delete Content
 
@@ -132,9 +139,14 @@ NS_ASSUME_NONNULL_BEGIN
 #pragma mark - Find Content
 
 + (nullable TSInteraction *)findInteractionInThreadByTimestamp:(uint64_t)timestamp
-                                                      authorId:(NSString *)authorId
+                                                 authorAddress:(SignalServiceAddress *)authorAddress
                                                 threadUniqueId:(NSString *)threadUniqueId
-                                                   transaction:(YapDatabaseReadTransaction *)transaction;
+                                                   transaction:(SDSAnyReadTransaction *)transaction;
+
+#pragma mark - Message Request
+
++ (BOOL)hasPendingMessageRequest:(TSThread *)thread transaction:(SDSAnyReadTransaction *)transaction;
++ (BOOL)existsOutgoingMessage:(TSThread *)thread transaction:(SDSAnyReadTransaction *)transaction;
 
 @end
 

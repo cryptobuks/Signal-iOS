@@ -10,20 +10,29 @@ public class MenuAction: NSObject {
     let image: UIImage
     let title: String
     let subtitle: String?
+    let accessibilityIdentifier: String
 
-    public init(image: UIImage, title: String, subtitle: String?, block: @escaping (MenuAction) -> Void) {
+    public init(image: UIImage,
+                title: String,
+                subtitle: String?,
+                accessibilityIdentifier: String,
+                block: @escaping (MenuAction) -> Void) {
         self.image = image
         self.title = title
         self.subtitle = subtitle
+        self.accessibilityIdentifier = accessibilityIdentifier
         self.block = block
     }
 }
 
 @objc
 protocol MenuActionsViewControllerDelegate: class {
-    func menuActionsDidHide(_ menuActionsViewController: MenuActionsViewController)
-    func menuActions(_ menuActionsViewController: MenuActionsViewController, isPresentingWithVerticalFocusChange: CGFloat)
-    func menuActions(_ menuActionsViewController: MenuActionsViewController, isDismissingWithVerticalFocusChange: CGFloat)
+    func menuActionsWillPresent(_ menuActionsViewController: MenuActionsViewController)
+    func menuActionsIsPresenting(_ menuActionsViewController: MenuActionsViewController)
+    func menuActionsDidPresent(_ menuActionsViewController: MenuActionsViewController)
+
+    func menuActionsIsDismissing(_ menuActionsViewController: MenuActionsViewController)
+    func menuActionsDidDismiss(_ menuActionsViewController: MenuActionsViewController)
 }
 
 @objc
@@ -32,18 +41,20 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
     @objc
     weak var delegate: MenuActionsViewControllerDelegate?
 
+    @objc
+    public let focusedInteraction: TSInteraction
+
     private let focusedView: UIView
     private let actionSheetView: MenuActionSheetView
 
     deinit {
         Logger.verbose("")
-        assert(didInformDelegateOfDismissalAnimation)
-        assert(didInformDelegateThatDisappearenceCompleted)
     }
 
     @objc
-    required init(focusedView: UIView, actions: [MenuAction]) {
+    required init(focusedInteraction: TSInteraction, focusedView: UIView, actions: [MenuAction]) {
         self.focusedView = focusedView
+        self.focusedInteraction = focusedInteraction
 
         self.actionSheetView = MenuActionSheetView(actions: actions)
         super.init(nibName: nil, bundle: nil)
@@ -86,19 +97,17 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
         // When the user has manually dismissed the menu, we do a nice animation
         // but if the view otherwise disappears (e.g. due to resigning active),
         // we still want to give the delegate the information it needs to restore it's UI.
-        ensureDelegateIsInformedOfDismissalAnimation()
-        ensureDelegateIsInformedThatDisappearenceCompleted()
+        delegate?.menuActionsDidDismiss(self)
     }
 
     // MARK: Orientation
 
     override public var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        return DefaultUIInterfaceOrientationMask()
+        return .allButUpsideDown
     }
 
     // MARK: Present / Dismiss animations
 
-    var presentationFocusOffset: CGFloat?
     var snapshotView: UIView?
 
     private func addSnapshotFocusedView() -> UIView? {
@@ -150,6 +159,7 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
         let oldFocusFrame = self.view.convert(focusedView.frame, from: focusedViewSuperview)
         NSLayoutConstraint.deactivate([actionSheetViewVerticalConstraint])
         self.actionSheetViewVerticalConstraint = self.actionSheetView.autoPinEdge(toSuperviewEdge: .bottom)
+        self.delegate?.menuActionsWillPresent(self)
         UIView.animate(withDuration: 0.2,
                        delay: backgroundDuration,
                        options: .curveEaseOut,
@@ -160,35 +170,36 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
                         var newFocusFrame = oldFocusFrame
 
                         // Position focused item just over the action sheet.
-                        let padding: CGFloat = 10
-                        let overlap: CGFloat = (oldFocusFrame.maxY + padding) - newSheetFrame.minY
+                        let overlap: CGFloat = (oldFocusFrame.maxY + self.vSpacing) - newSheetFrame.minY
                         newFocusFrame.origin.y = oldFocusFrame.origin.y - overlap
 
                         snapshotView.frame = newFocusFrame
 
-                        let offset = -overlap
-                        self.presentationFocusOffset = offset
-                        self.delegate?.menuActions(self, isPresentingWithVerticalFocusChange: offset)
+                        self.delegate?.menuActionsIsPresenting(self)
         },
-                       completion: nil)
+                       completion: { (_) in
+                        self.delegate?.menuActionsDidPresent(self)
+        })
+    }
+
+    @objc
+    public let vSpacing: CGFloat = 10
+
+    @objc
+    public var focusUI: UIView {
+        return actionSheetView
     }
 
     private func animateDismiss(action: MenuAction?) {
         guard let actionSheetViewVerticalConstraint = self.actionSheetViewVerticalConstraint else {
             owsFailDebug("actionSheetVerticalConstraint was unexpectedly nil")
-            self.delegate?.menuActionsDidHide(self)
+            delegate?.menuActionsDidDismiss(self)
             return
         }
 
         guard let snapshotView = self.snapshotView else {
             owsFailDebug("snapshotView was unexpectedly nil")
-            self.delegate?.menuActionsDidHide(self)
-            return
-        }
-
-        guard let presentationFocusOffset = self.presentationFocusOffset else {
-            owsFailDebug("presentationFocusOffset was unexpectedly nil")
-            self.delegate?.menuActionsDidHide(self)
+            delegate?.menuActionsDidDismiss(self)
             return
         }
 
@@ -203,46 +214,18 @@ class MenuActionsViewController: UIViewController, MenuActionSheetDelegate {
                        animations: {
                         self.view.backgroundColor = UIColor.clear
                         self.actionSheetView.superview?.layoutIfNeeded()
-                        snapshotView.frame.origin.y -= presentationFocusOffset
                         // this helps when focused view is above navbars, etc.
                         snapshotView.alpha = 0
-                        self.ensureDelegateIsInformedOfDismissalAnimation()
+
+                        self.delegate?.menuActionsIsDismissing(self)
         },
                        completion: { _ in
                         self.view.isHidden = true
-                        self.ensureDelegateIsInformedThatDisappearenceCompleted()
+                        self.delegate?.menuActionsDidDismiss(self)
                         if let action = action {
                             action.block(action)
                         }
         })
-    }
-
-    var didInformDelegateThatDisappearenceCompleted = false
-    func ensureDelegateIsInformedThatDisappearenceCompleted() {
-        guard !didInformDelegateThatDisappearenceCompleted else {
-            Logger.debug("ignoring redundant 'disappeared' notification")
-            return
-        }
-        didInformDelegateThatDisappearenceCompleted = true
-
-        self.delegate?.menuActionsDidHide(self)
-    }
-
-    var didInformDelegateOfDismissalAnimation = false
-    func ensureDelegateIsInformedOfDismissalAnimation() {
-        guard !didInformDelegateOfDismissalAnimation else {
-            Logger.debug("ignoring redundant 'dismissal' notification")
-            return
-        }
-        didInformDelegateOfDismissalAnimation = true
-
-        guard let presentationFocusOffset = self.presentationFocusOffset else {
-            owsFailDebug("presentationFocusOffset was unexpectedly nil")
-            self.delegate?.menuActionsDidHide(self)
-            return
-        }
-
-        self.delegate?.menuActions(self, isDismissingWithVerticalFocusChange: presentationFocusOffset)
     }
 
     // MARK: Actions
@@ -268,7 +251,7 @@ class MenuActionSheetView: UIView, MenuActionViewDelegate {
     private let actionStackView: UIStackView
     private var actions: [MenuAction]
     private var actionViews: [MenuActionView]
-    private var hapticFeedback: HapticFeedback
+    private var hapticFeedback: SelectionHapticFeedback
     private var hasEverHighlightedAction = false
 
     weak var delegate: MenuActionSheetDelegate?
@@ -291,7 +274,7 @@ class MenuActionSheetView: UIView, MenuActionViewDelegate {
 
         actions = []
         actionViews = []
-        hapticFeedback = HapticFeedback()
+        hapticFeedback = SelectionHapticFeedback()
 
         super.init(frame: frame)
 
@@ -334,6 +317,9 @@ class MenuActionSheetView: UIView, MenuActionViewDelegate {
         case .failed:
             Logger.debug("failed")
             unhighlightAllActionViews()
+        @unknown default:
+            owsFailDebug("unknown gesture state: \(gesture.state)")
+            break
         }
     }
 
@@ -465,6 +451,8 @@ class MenuActionView: UIButton {
         contentRow.autoSetDimension(.height, toSize: 56, relation: .greaterThanOrEqual)
 
         self.isUserInteractionEnabled = false
+
+        self.accessibilityIdentifier = action.accessibilityIdentifier
     }
 
     private var defaultBackgroundColor: UIColor {

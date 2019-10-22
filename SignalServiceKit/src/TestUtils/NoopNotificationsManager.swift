@@ -5,16 +5,20 @@
 @objc
 public class NoopNotificationsManager: NSObject, NotificationsProtocol {
 
-    public func notifyUser(for incomingMessage: TSIncomingMessage, in thread: TSThread, transaction: YapDatabaseReadTransaction) {
-        owsFailDebug("")
+    public func notifyUser(for incomingMessage: TSIncomingMessage, in thread: TSThread, transaction: SDSAnyReadTransaction) {
+        Logger.warn("skipping notification for: \(incomingMessage.description)")
     }
 
-    public func notifyUser(for error: TSErrorMessage, thread: TSThread, transaction: YapDatabaseReadWriteTransaction) {
-        Logger.warn("skipping notification for: \(error.description)")
+    public func notifyUser(for errorMessage: TSErrorMessage, thread: TSThread, transaction: SDSAnyWriteTransaction) {
+        Logger.warn("skipping notification for: \(errorMessage.description)")
     }
 
-    public func notifyUser(forThreadlessErrorMessage error: TSErrorMessage, transaction: YapDatabaseReadWriteTransaction) {
-        Logger.warn("skipping notification for: \(error.description)")
+    public func notifyUser(for infoMessage: TSInfoMessage, thread: TSThread, wantsSound: Bool, transaction: SDSAnyWriteTransaction) {
+        Logger.warn("skipping notification for: \(infoMessage.description)")
+    }
+
+    public func notifyUser(for errorMessage: ThreadlessErrorMessage, transaction: SDSAnyWriteTransaction) {
+        Logger.warn("skipping notification for: \(errorMessage.description)")
     }
 
     public func clearAllNotifications() {

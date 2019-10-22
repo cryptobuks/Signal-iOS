@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
@@ -40,7 +40,7 @@ public class ContactShareViewModel: NSObject {
     }
 
     @objc
-    public convenience init(contactShareRecord: OWSContact, transaction: YapDatabaseReadTransaction) {
+    public convenience init(contactShareRecord: OWSContact, transaction: SDSAnyReadTransaction) {
         if let avatarAttachment = contactShareRecord.avatarAttachment(with: transaction) as? TSAttachmentStream {
             self.init(contactShareRecord: contactShareRecord, avatarImageData: avatarAttachment.validStillImageData())
         } else {

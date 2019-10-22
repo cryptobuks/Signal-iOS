@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import UIKit
@@ -18,12 +18,28 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
         return TSAccountManager.sharedInstance()
     }
 
+    private var databaseStorage: SDSDatabaseStorage {
+        return SDSDatabaseStorage.shared
+    }
+
+    private var profileManager: OWSProfileManager {
+        return OWSProfileManager.shared()
+    }
+
+    private var syncManager: OWSSyncManagerProtocol {
+        return SSKEnvironment.shared.syncManager
+    }
+
+    private var storageCoordinator: StorageCoordinator {
+        return SSKEnvironment.shared.storageCoordinator
+    }
+
     // MARK: -
 
     enum ShareViewControllerError: Error {
         case assertionError(description: String)
         case unsupportedMedia
-        case notRegistered()
+        case notRegistered
         case obsoleteShare
     }
 
@@ -94,6 +110,7 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
         })
 
         let shareViewNavigationController = OWSNavigationController()
+        shareViewNavigationController.presentationController?.delegate = self
         self.shareViewNavigationController = shareViewNavigationController
 
         let loadViewController = SAELoadViewController(delegate: self)
@@ -179,19 +196,8 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
 
         // We don't need to use RTCInitializeSSL() in the SAE.
 
-        if tsAccountManager.isRegistered() {
-            // At this point, potentially lengthy DB locking migrations could be running.
-            // Avoid blocking app launch by putting all further possible DB access in async block
-            DispatchQueue.global().async { [weak self] in
-                guard let _ = self else { return }
-                Logger.info("running post launch block for registered user: \(TSAccountManager.localNumber)")
-
-                // We don't need to use OWSDisappearingMessagesJob in the SAE.
-
-                // We don't need to use OWSFailedMessagesJob in the SAE.
-
-                // We don't need to use OWSFailedAttachmentDownloadsJob in the SAE.
-            }
+        if tsAccountManager.isRegistered {
+            Logger.info("running post launch block for registered user: \(String(describing: TSAccountManager.localAddress))")
         } else {
             Logger.info("running post launch block for unregistered user.")
 
@@ -200,10 +206,10 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
             // We don't need to prod the TSSocketManager in the SAE.
         }
 
-        if tsAccountManager.isRegistered() {
+        if tsAccountManager.isRegistered {
             DispatchQueue.main.async { [weak self] in
                 guard let _ = self else { return }
-                Logger.info("running post launch block for registered user: \(TSAccountManager.localNumber)")
+                Logger.info("running post launch block for registered user: \(String(describing: TSAccountManager.localAddress))")
 
                 // We don't need to use the TSSocketManager in the SAE.
 
@@ -244,7 +250,7 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
         guard areVersionMigrationsComplete else {
             return
         }
-        guard OWSStorage.isStorageReady() else {
+        guard storageCoordinator.isStorageReady else {
             return
         }
         guard !AppReadiness.isAppReady() else {
@@ -252,17 +258,16 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
             return
         }
 
-        Logger.debug("")
+        // We don't need to use LaunchJobs in the SAE.
 
-        // TODO: Once "app ready" logic is moved into AppSetup, move this line there.
-        OWSProfileManager.shared().ensureLocalProfileCached()
+        Logger.debug("")
 
         // Note that this does much more than set a flag;
         // it will also run all deferred blocks.
         AppReadiness.setAppIsReady()
 
-        if tsAccountManager.isRegistered() {
-            Logger.info("localNumber: \(TSAccountManager.localNumber)")
+        if tsAccountManager.isRegistered {
+            Logger.info("localAddress: \(String(describing: TSAccountManager.localAddress))")
 
             // We don't need to use messageFetcherJob in the SAE.
 
@@ -278,8 +283,6 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
         // We don't need to use OWSMessageReceiver in the SAE.
         // We don't need to use OWSBatchMessageProcessor in the SAE.
 
-        OWSProfileManager.shared().ensureLocalProfileCached()
-
         // We don't need to use OWSOrphanDataCleaner in the SAE.
 
         // We don't need to fetch the local profile in the SAE
@@ -293,14 +296,15 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
 
         Logger.debug("")
 
-        if tsAccountManager.isRegistered() {
-            Logger.info("localNumber: \(TSAccountManager.localNumber)")
+        if tsAccountManager.isRegistered {
+            Logger.info("localAddress: \(String(describing: TSAccountManager.localAddress))")
 
             // We don't need to use ExperienceUpgradeFinder in the SAE.
 
             // We don't need to use OWSDisappearingMessagesJob in the SAE.
 
-            OWSProfileManager.shared().ensureLocalProfileCached()
+            // TODO: This is probably superfluous and can be removed.
+            syncManager.syncLocalContact().retainUntilComplete()
         }
     }
 
@@ -333,16 +337,21 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
 
         Logger.info("Presenting content view")
 
-        if !tsAccountManager.isRegistered() {
+        if !tsAccountManager.isRegistered {
             showNotRegisteredView()
-        } else if !OWSProfileManager.shared().localProfileExists() {
-            // This is a rare edge case, but we want to ensure that the user
-            // is has already saved their local profile key in the main app.
-            showNotReadyView()
         } else {
-            DispatchQueue.main.async { [weak self] in
-                guard let strongSelf = self else { return }
-                strongSelf.buildAttachmentsAndPresentConversationPicker()
+            let localProfileExists = databaseStorage.readReturningResult { transaction in
+                return self.profileManager.localProfileExists(with: transaction)
+            }
+            if !localProfileExists {
+                // This is a rare edge case, but we want to ensure that the user
+                // has already saved their local profile key in the main app.
+                showNotReadyView()
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    guard let strongSelf = self else { return }
+                    strongSelf.buildAttachmentsAndPresentConversationPicker()
+                }
             }
         }
 
@@ -350,7 +359,12 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
     }
 
     func startupLogging() {
-        Logger.info("iOS Version: \(UIDevice.current.systemVersion)}")
+
+        if let osBuild = String(sysctlKey: "kern.osversion") {
+            Logger.info("iOS Version: \(UIDevice.current.systemVersion) (\(osBuild))")
+        } else {
+            Logger.info("iOS Version: \(UIDevice.current.systemVersion)")
+        }
 
         let locale = NSLocale.current as NSLocale
         if let localeIdentifier = locale.object(forKey: NSLocale.Key.identifier) as? String,
@@ -459,7 +473,7 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
 
         // If a user unregisters in the main app, the SAE should shut down
         // immediately.
-        guard !tsAccountManager.isRegistered() else {
+        guard !tsAccountManager.isRegistered else {
             // If user is registered, do nothing.
             return
         }
@@ -475,7 +489,7 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
             // If root view is an error view, do nothing.
             return
         }
-        throw ShareViewControllerError.notRegistered()
+        throw ShareViewControllerError.notRegistered
     }
 
     // MARK: ShareViewDelegate, SAEFailedViewDelegate
@@ -502,7 +516,7 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
         self.dismiss(animated: true) { [weak self] in
             AssertIsOnMainThread()
             guard let strongSelf = self else { return }
-            strongSelf.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
+            strongSelf.extensionContext!.cancelRequest(withError: NSError())
         }
     }
 
@@ -637,11 +651,11 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
             //
             // NOTE: SharingThreadPickerViewController will try to unpack them
             //       and send them as normal text messages if possible.
-            return DataSourcePath.dataSource(with: url,
-                                             shouldDeleteOnDeallocation: false)
+            return try? DataSourcePath.dataSource(with: url,
+                                                  shouldDeleteOnDeallocation: false)
         } else {
-            guard let dataSource = DataSourcePath.dataSource(with: url,
-                                                             shouldDeleteOnDeallocation: false) else {
+            guard let dataSource = try? DataSourcePath.dataSource(with: url,
+                                                                  shouldDeleteOnDeallocation: false) else {
                 return nil
             }
 
@@ -663,10 +677,7 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
         var visualMediaItemProviders = [NSItemProvider]()
         var hasNonVisualMedia = false
         for attachment in attachments {
-            guard let itemProvider = attachment as? NSItemProvider else {
-                owsFailDebug("Unexpected attachment type: \(String(describing: attachment))")
-                continue
-            }
+            let itemProvider: NSItemProvider = attachment
             if isVisualMediaItem(itemProvider: itemProvider) {
                 visualMediaItemProviders.append(itemProvider)
             } else {
@@ -694,15 +705,11 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
             }
             return isUrlItem(itemProvider: itemProvider)
         }) {
-            if let itemProvider = preferredAttachment as? NSItemProvider {
-                return [itemProvider]
-            } else {
-                owsFailDebug("Unexpected attachment type: \(String(describing: preferredAttachment))")
-            }
+            return [preferredAttachment]
         }
 
         // else return whatever is available
-        if let itemProvider = inputItem.attachments?.first as? NSItemProvider {
+        if let itemProvider = inputItem.attachments?.first {
             return [itemProvider]
         } else {
             owsFailDebug("Missing attachment.")
@@ -866,7 +873,7 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
                                                 isConvertibleToTextMessage: isConvertibleToTextMessage))
                 }
             } else if let image = value as? UIImage {
-                if let data = UIImagePNGRepresentation(image) {
+                if let data = image.pngData() {
                     let tempFilePath = OWSFileSystem.temporaryFilePath(withFileExtension: "png")
                     do {
                         let url = NSURL.fileURL(withPath: tempFilePath)
@@ -1032,6 +1039,12 @@ public class ShareViewController: UIViewController, ShareViewDelegate, SAEFailed
         // If video file already existed on disk as an mp4, then the host app didn't need to
         // apply any conversion, so no need to relocate the app.
         return !itemProvider.registeredTypeIdentifiers.contains(kUTTypeMPEG4 as String)
+    }
+}
+
+extension ShareViewController: UIAdaptivePresentationControllerDelegate {
+    public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        shareViewWasCancelled()
     }
 }
 

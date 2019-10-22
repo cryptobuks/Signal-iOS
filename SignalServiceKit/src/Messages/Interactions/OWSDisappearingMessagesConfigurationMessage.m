@@ -37,7 +37,9 @@ NS_ASSUME_NONNULL_BEGIN
                                   groupMetaMessage:TSGroupMetaMessageUnspecified
                                      quotedMessage:nil
                                       contactShare:nil
-                                       linkPreview:nil];
+                                       linkPreview:nil
+                                    messageSticker:nil
+                                 isViewOnceMessage:NO];
     if (!self) {
         return self;
     }
@@ -48,9 +50,11 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 
-- (nullable SSKProtoDataMessageBuilder *)dataMessageBuilder
+- (nullable SSKProtoDataMessageBuilder *)dataMessageBuilderWithThread:(TSThread *)thread
+                                                          transaction:(SDSAnyReadTransaction *)transaction
 {
-    SSKProtoDataMessageBuilder *_Nullable dataMessageBuilder = [super dataMessageBuilder];
+    SSKProtoDataMessageBuilder *_Nullable dataMessageBuilder = [super dataMessageBuilderWithThread:thread
+                                                                                       transaction:transaction];
     if (!dataMessageBuilder) {
         return nil;
     }

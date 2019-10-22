@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
@@ -46,21 +46,27 @@ class AppUpdateNag: NSObject {
             Logger.info("new version available: \(appStoreRecord)")
             self.showUpdateNagIfEnoughTimeHasPassed(appStoreRecord: appStoreRecord)
         }.catch { error in
-            Logger.error("failed with error: \(error)")
+            Logger.warn("failed with error: \(error)")
         }.retainUntilComplete()
     }
 
     // MARK: - Internal
 
-    let kUpgradeNagCollection = "TSStorageManagerAppUpgradeNagCollection"
-    let kLastNagDateKey = "TSStorageManagerAppUpgradeNagDate"
-    let kFirstHeardOfNewVersionDateKey = "TSStorageManagerAppUpgradeFirstHeardOfNewVersionDate"
+    static let kLastNagDateKey = "TSStorageManagerAppUpgradeNagDate"
+    static let kFirstHeardOfNewVersionDateKey = "TSStorageManagerAppUpgradeFirstHeardOfNewVersionDate"
 
-    var dbConnection: YapDatabaseConnection {
-        return OWSPrimaryStorage.shared().dbReadWriteConnection
+    // MARK: - Dependencies
+
+    private var databaseStorage: SDSDatabaseStorage {
+        return SDSDatabaseStorage.shared
     }
 
-    // MARK: Bundle accessors
+    // MARK: - KV Store
+
+    @objc
+    public let keyValueStore = SDSKeyValueStore(collection: "TSStorageManagerAppUpgradeNagCollection")
+
+    // MARK: - Bundle accessors
 
     var bundle: Bundle {
         return Bundle.main
@@ -115,7 +121,7 @@ class AppUpdateNag: NSObject {
         }
 
         switch frontmostViewController {
-        case is HomeViewController, is RegistrationViewController:
+        case is HomeViewController, is OnboardingSplashViewController:
             self.setLastNagDate(Date())
             self.clearFirstHeardOfNewVersionDate()
             presentUpgradeNag(appStoreRecord: appStoreRecord)
@@ -144,36 +150,51 @@ class AppUpdateNag: NSObject {
         }
 
         alert.addAction(updateAction)
-        alert.addAction(UIAlertAction(title: dismissButtonText, style: .cancel, handler: nil))
+        alert.addAction(UIAlertAction(title: dismissButtonText, style: .cancel) { _ in
+            Logger.info("dismissed upgrade notice")
+        })
 
         OWSAlerts.showAlert(alert)
     }
 
     func showAppStore(appStoreURL: URL) {
+        assert(CurrentAppContext().isMainApp)
+
         Logger.debug("")
+
         UIApplication.shared.openURL(appStoreURL)
     }
 
     // MARK: Storage
 
     var firstHeardOfNewVersionDate: Date? {
-        return self.dbConnection.date(forKey: kFirstHeardOfNewVersionDateKey, inCollection: kUpgradeNagCollection)
+        return self.databaseStorage.readReturningResult { transaction in
+            return self.keyValueStore.getDate(AppUpdateNag.kFirstHeardOfNewVersionDateKey, transaction: transaction)
+        }
     }
 
     func setFirstHeardOfNewVersionDate(_ date: Date) {
-        self.dbConnection.setDate(date, forKey: kFirstHeardOfNewVersionDateKey, inCollection: kUpgradeNagCollection)
+        self.databaseStorage.write { transaction in
+            self.keyValueStore.setDate(date, key: AppUpdateNag.kFirstHeardOfNewVersionDateKey, transaction: transaction)
+        }
     }
 
     func clearFirstHeardOfNewVersionDate() {
-        self.dbConnection.removeObject(forKey: kFirstHeardOfNewVersionDateKey, inCollection: kUpgradeNagCollection)
+        self.databaseStorage.write { transaction in
+            self.keyValueStore.removeValue(forKey: AppUpdateNag.kFirstHeardOfNewVersionDateKey, transaction: transaction)
+        }
     }
 
     var lastNagDate: Date? {
-        return self.dbConnection.date(forKey: kLastNagDateKey, inCollection: kUpgradeNagCollection)
+        return self.databaseStorage.readReturningResult { transaction in
+            return self.keyValueStore.getDate(AppUpdateNag.kLastNagDateKey, transaction: transaction)
+        }
     }
 
     func setLastNagDate(_ date: Date) {
-        self.dbConnection.setDate(date, forKey: kLastNagDateKey, inCollection: kUpgradeNagCollection)
+        self.databaseStorage.write { transaction in
+            self.keyValueStore.setDate(date, key: AppUpdateNag.kLastNagDateKey, transaction: transaction)
+        }
     }
 }
 

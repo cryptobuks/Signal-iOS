@@ -12,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @implementation OWSProfileKeyMessage
 
-- (instancetype)initWithTimestamp:(uint64_t)timestamp inThread:(nullable TSThread *)thread
+- (instancetype)initWithTimestamp:(uint64_t)timestamp inThread:(TSThread *)thread
 {
     return [super initOutgoingMessageWithTimestamp:timestamp
                                           inThread:thread
@@ -24,7 +24,9 @@ NS_ASSUME_NONNULL_BEGIN
                                   groupMetaMessage:TSGroupMetaMessageUnspecified
                                      quotedMessage:nil
                                       contactShare:nil
-                                       linkPreview:nil];
+                                       linkPreview:nil
+                                    messageSticker:nil
+                                 isViewOnceMessage:NO];
 }
 
 - (nullable instancetype)initWithCoder:(NSCoder *)coder
@@ -42,11 +44,13 @@ NS_ASSUME_NONNULL_BEGIN
     return NO;
 }
 
-- (nullable SSKProtoDataMessage *)buildDataMessage:(NSString *_Nullable)recipientId
+- (nullable SSKProtoDataMessage *)buildDataMessage:(SignalServiceAddress *_Nullable)address
+                                            thread:(TSThread *)thread
+                                       transaction:(SDSAnyReadTransaction *)transaction
 {
-    OWSAssertDebug(self.thread);
+    OWSAssertDebug(thread != nil);
 
-    SSKProtoDataMessageBuilder *_Nullable builder = [self dataMessageBuilder];
+    SSKProtoDataMessageBuilder *_Nullable builder = [self dataMessageBuilderWithThread:thread transaction:transaction];
     if (!builder) {
         OWSFailDebug(@"could not build protobuf.");
         return nil;
@@ -54,12 +58,12 @@ NS_ASSUME_NONNULL_BEGIN
     [builder setTimestamp:self.timestamp];
     [ProtoUtils addLocalProfileKeyToDataMessageBuilder:builder];
     [builder setFlags:SSKProtoDataMessageFlagsProfileKeyUpdate];
-    
-    if (recipientId.length > 0) {
+
+    if (address.isValid) {
         // Once we've shared our profile key with a user (perhaps due to being
         // a member of a whitelisted group), make sure they're whitelisted.
         id<ProfileManagerProtocol> profileManager = SSKEnvironment.shared.profileManager;
-        [profileManager addUserToProfileWhitelist:recipientId];
+        [profileManager addUserToProfileWhitelist:address];
     }
 
     NSError *error;

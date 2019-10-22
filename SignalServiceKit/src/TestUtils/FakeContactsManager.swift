@@ -1,44 +1,62 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
+import Contacts
+
 @objc(OWSFakeContactsManager)
-class FakeContactsManager: NSObject, ContactsManagerProtocol {
-    func displayName(forPhoneIdentifier recipientId: String?) -> String {
+public class FakeContactsManager: NSObject, ContactsManagerProtocol {
+    public func displayName(for address: SignalServiceAddress) -> String {
         return "Fake name"
     }
 
-    func displayName(forPhoneIdentifier recipientId: String?, transaction: YapDatabaseReadTransaction) -> String {
-        return self.displayName(forPhoneIdentifier: recipientId)
+    public func displayName(for address: SignalServiceAddress, transaction: SDSAnyReadTransaction) -> String {
+        return self.displayName(for: address)
     }
 
-    func signalAccounts() -> [SignalAccount] {
+    public func displayName(for signalAccount: SignalAccount) -> String {
+        return "Fake name"
+    }
+
+    public func displayName(for thread: TSThread, transaction: SDSAnyReadTransaction) -> String {
+        return "Fake name"
+    }
+
+    public func displayNameWithSneakyTransaction(thread: TSThread) -> String {
+        return "Fake name"
+    }
+
+    public func signalAccounts() -> [SignalAccount] {
         return []
     }
 
-    func isSystemContact(_ recipientId: String) -> Bool {
+    public func isSystemContact(phoneNumber: String) -> Bool {
         return true
     }
 
-    func isSystemContact(withSignalAccount recipientId: String) -> Bool {
+    public func isSystemContact(address: SignalServiceAddress) -> Bool {
         return true
     }
 
-    func compare(signalAccount left: SignalAccount, with right: SignalAccount) -> ComparisonResult {
+    public func isSystemContact(withSignalAccount phoneNumber: String) -> Bool {
+        return true
+    }
+
+    public func compare(signalAccount left: SignalAccount, with right: SignalAccount) -> ComparisonResult {
         // If this method ends up being used by the tests, we should provide a better implementation.
         assertionFailure("TODO")
         return ComparisonResult.orderedAscending
     }
 
-    func cnContact(withId contactId: String?) -> CNContact? {
+    public func cnContact(withId contactId: String?) -> CNContact? {
         return nil
     }
 
-    func avatarData(forCNContactId contactId: String?) -> Data? {
+    public func avatarData(forCNContactId contactId: String?) -> Data? {
         return nil
     }
 
-    func avatarImage(forCNContactId contactId: String?) -> UIImage? {
+    public func avatarImage(forCNContactId contactId: String?) -> UIImage? {
         return nil
     }
 }

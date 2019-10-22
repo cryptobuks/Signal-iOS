@@ -18,7 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @implementation OWSSyncGroupsRequestMessage
 
-- (instancetype)initWithThread:(nullable TSThread *)thread groupId:(NSData *)groupId
+- (instancetype)initWithThread:(TSThread *)thread groupId:(NSData *)groupId
 {
     // MJK TODO - remove senderTimestamp
     self = [super initOutgoingMessageWithTimestamp:[NSDate ows_millisecondTimeStamp]
@@ -31,7 +31,9 @@ NS_ASSUME_NONNULL_BEGIN
                                   groupMetaMessage:TSGroupMetaMessageUnspecified
                                      quotedMessage:nil
                                       contactShare:nil
-                                       linkPreview:nil];
+                                       linkPreview:nil
+                                    messageSticker:nil
+                                 isViewOnceMessage:NO];
     if (!self) {
         return self;
     }
@@ -59,10 +61,11 @@ NS_ASSUME_NONNULL_BEGIN
     return YES;
 }
 
-- (nullable SSKProtoDataMessageBuilder *)dataMessageBuilder
+- (nullable SSKProtoDataMessageBuilder *)dataMessageBuilderWithThread:(TSThread *)thread
+                                                          transaction:(SDSAnyReadTransaction *)transaction
 {
-    SSKProtoGroupContextBuilder *groupContextBuilder =
-        [SSKProtoGroupContext builderWithId:self.groupId type:SSKProtoGroupContextTypeRequestInfo];
+    SSKProtoGroupContextBuilder *groupContextBuilder = [SSKProtoGroupContext builderWithId:self.groupId];
+    [groupContextBuilder setType:SSKProtoGroupContextTypeRequestInfo];
 
     NSError *error;
     SSKProtoGroupContext *_Nullable groupContextProto = [groupContextBuilder buildAndReturnError:&error];

@@ -11,7 +11,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface OWSReceiptsForSenderMessage : TSOutgoingMessage
 
 - (instancetype)initOutgoingMessageWithTimestamp:(uint64_t)timestamp
-                                        inThread:(nullable TSThread *)thread
+                                        inThread:(TSThread *)thread
                                      messageBody:(nullable NSString *)body
                                    attachmentIds:(NSMutableArray<NSString *> *)attachmentIds
                                 expiresInSeconds:(uint32_t)expiresInSeconds
@@ -20,12 +20,13 @@ NS_ASSUME_NONNULL_BEGIN
                                 groupMetaMessage:(TSGroupMetaMessage)groupMetaMessage
                                    quotedMessage:(nullable TSQuotedMessage *)quotedMessage
                                     contactShare:(nullable OWSContact *)contactShare
-                                     linkPreview:(nullable OWSLinkPreview *)linkPreview NS_UNAVAILABLE;
+                                     linkPreview:(nullable OWSLinkPreview *)linkPreview
+                                  messageSticker:(nullable MessageSticker *)messageSticker NS_UNAVAILABLE;
 
-+ (OWSReceiptsForSenderMessage *)deliveryReceiptsForSenderMessageWithThread:(nullable TSThread *)thread
++ (OWSReceiptsForSenderMessage *)deliveryReceiptsForSenderMessageWithThread:(TSThread *)thread
                                                           messageTimestamps:(NSArray<NSNumber *> *)messageTimestamps;
 
-+ (OWSReceiptsForSenderMessage *)readReceiptsForSenderMessageWithThread:(nullable TSThread *)thread
++ (OWSReceiptsForSenderMessage *)readReceiptsForSenderMessageWithThread:(TSThread *)thread
                                                       messageTimestamps:(NSArray<NSNumber *> *)messageTimestamps;
 
 @end

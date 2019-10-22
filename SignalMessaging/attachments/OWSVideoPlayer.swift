@@ -1,12 +1,12 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
 import AVFoundation
 
 @objc
-protocol OWSVideoPlayerDelegate: class {
+public protocol OWSVideoPlayerDelegate: class {
     func videoPlayerDidPlayToCompletion(_ videoPlayer: OWSVideoPlayer)
 }
 
@@ -14,15 +14,23 @@ protocol OWSVideoPlayerDelegate: class {
 public class OWSVideoPlayer: NSObject {
 
     @objc
-    let avPlayer: AVPlayer
+    public let avPlayer: AVPlayer
     let audioActivity: AudioActivity
+    let shouldLoop: Bool
 
     @objc
-    weak var delegate: OWSVideoPlayerDelegate?
+    weak public var delegate: OWSVideoPlayerDelegate?
 
-    @objc init(url: URL) {
+    @objc
+    convenience public init(url: URL) {
+        self.init(url: url, shouldLoop: false)
+    }
+
+    @objc
+    public init(url: URL, shouldLoop: Bool) {
         self.avPlayer = AVPlayer(url: url)
         self.audioActivity = AudioActivity(audioDescription: "[OWSVideoPlayer] url:\(url)", behavior: .playback)
+        self.shouldLoop = shouldLoop
 
         super.init()
 
@@ -58,7 +66,7 @@ public class OWSVideoPlayer: NSObject {
 
         if item.currentTime() == item.duration {
             // Rewind for repeated plays, but only if it previously played to end.
-            avPlayer.seek(to: kCMTimeZero)
+            avPlayer.seek(to: CMTime.zero)
         }
 
         avPlayer.play()
@@ -67,7 +75,7 @@ public class OWSVideoPlayer: NSObject {
     @objc
     public func stop() {
         avPlayer.pause()
-        avPlayer.seek(to: kCMTimeZero)
+        avPlayer.seek(to: CMTime.zero)
         audioSession.endAudioActivity(self.audioActivity)
     }
 
@@ -81,6 +89,11 @@ public class OWSVideoPlayer: NSObject {
     @objc
     private func playerItemDidPlayToCompletion(_ notification: Notification) {
         self.delegate?.videoPlayerDidPlayToCompletion(self)
-        audioSession.endAudioActivity(self.audioActivity)
+        if shouldLoop {
+            avPlayer.seek(to: CMTime.zero)
+            avPlayer.play()
+        } else {
+            audioSession.endAudioActivity(self.audioActivity)
+        }
     }
 }

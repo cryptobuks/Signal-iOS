@@ -17,11 +17,11 @@ NS_ASSUME_NONNULL_BEGIN
     return [super initWithCoder:coder];
 }
 
-- (instancetype)init
+- (instancetype)initWithThread:(TSThread *)thread
 {
     // MJK TODO - remove SenderTimestamp
     self = [super initOutgoingMessageWithTimestamp:[NSDate ows_millisecondTimeStamp]
-                                          inThread:nil
+                                          inThread:thread
                                        messageBody:nil
                                      attachmentIds:[NSMutableArray new]
                                   expiresInSeconds:0
@@ -30,7 +30,32 @@ NS_ASSUME_NONNULL_BEGIN
                                   groupMetaMessage:TSGroupMetaMessageUnspecified
                                      quotedMessage:nil
                                       contactShare:nil
-                                       linkPreview:nil];
+                                       linkPreview:nil
+                                    messageSticker:nil
+                                 isViewOnceMessage:NO];
+
+    if (!self) {
+        return self;
+    }
+
+    return self;
+}
+
+- (instancetype)initWithTimestamp:(uint64_t)timestamp thread:(TSThread *)thread
+{
+    self = [super initOutgoingMessageWithTimestamp:timestamp
+                                          inThread:thread
+                                       messageBody:nil
+                                     attachmentIds:[NSMutableArray new]
+                                  expiresInSeconds:0
+                                   expireStartedAt:0
+                                    isVoiceMessage:NO
+                                  groupMetaMessage:TSGroupMetaMessageUnspecified
+                                     quotedMessage:nil
+                                      contactShare:nil
+                                       linkPreview:nil
+                                    messageSticker:nil
+                                 isViewOnceMessage:NO];
 
     if (!self) {
         return self;
@@ -50,9 +75,9 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 // This method should not be overridden, since we want to add random padding to *every* sync message
-- (nullable SSKProtoSyncMessage *)buildSyncMessage
+- (nullable SSKProtoSyncMessage *)buildSyncMessageWithTransaction:(SDSAnyReadTransaction *)transaction
 {
-    SSKProtoSyncMessageBuilder *_Nullable builder = [self syncMessageBuilder];
+    SSKProtoSyncMessageBuilder *_Nullable builder = [self syncMessageBuilderWithTransaction:transaction];
     if (!builder) {
         return nil;
     }
@@ -70,7 +95,7 @@ NS_ASSUME_NONNULL_BEGIN
     return proto;
 }
 
-- (nullable SSKProtoSyncMessageBuilder *)syncMessageBuilder
+- (nullable SSKProtoSyncMessageBuilder *)syncMessageBuilderWithTransaction:(SDSAnyReadTransaction *)transaction;
 {
     OWSAbstractMethod();
 
@@ -78,8 +103,10 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 - (nullable NSData *)buildPlainTextData:(SignalRecipient *)recipient
+                                 thread:(TSThread *)thread
+                            transaction:(SDSAnyReadTransaction *)transaction
 {
-    SSKProtoSyncMessage *_Nullable syncMessage = [self buildSyncMessage];
+    SSKProtoSyncMessage *_Nullable syncMessage = [self buildSyncMessageWithTransaction:transaction];
     if (!syncMessage) {
         return nil;
     }

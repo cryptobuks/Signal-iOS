@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
@@ -155,11 +155,7 @@ public class ConversationMediaView: UIView {
             configure(forError: .missing)
             return
         }
-        guard let attachmentId = attachmentPointer.uniqueId else {
-            owsFailDebug("Attachment missing unique ID.")
-            configure(forError: .invalid)
-            return
-        }
+        let attachmentId = attachmentPointer.uniqueId
         guard nil != attachmentDownloads.downloadProgress(forAttachmentId: attachmentId) else {
             // Not being downloaded.
             configure(forError: .missing)
@@ -179,11 +175,7 @@ public class ConversationMediaView: UIView {
         guard let attachmentStream = attachment as? TSAttachmentStream else {
             return false
         }
-        guard let attachmentId = attachmentStream.uniqueId else {
-            owsFailDebug("Attachment missing unique ID.")
-            configure(forError: .invalid)
-            return false
-        }
+        let attachmentId = attachmentStream.uniqueId
         guard !attachmentStream.isUploaded else {
             return false
         }
@@ -194,18 +186,15 @@ public class ConversationMediaView: UIView {
     }
 
     private func configureForAnimatedImage(attachmentStream: TSAttachmentStream) {
-        guard let cacheKey = attachmentStream.uniqueId else {
-            owsFailDebug("Attachment stream missing unique ID.")
-            return
-        }
+        let cacheKey = attachmentStream.uniqueId
         let animatedImageView = YYAnimatedImageView()
         // We need to specify a contentMode since the size of the image
         // might not match the aspect ratio of the view.
         animatedImageView.contentMode = .scaleAspectFill
         // Use trilinear filters for better scaling quality at
         // some performance cost.
-        animatedImageView.layer.minificationFilter = kCAFilterTrilinear
-        animatedImageView.layer.magnificationFilter = kCAFilterTrilinear
+        animatedImageView.layer.minificationFilter = .trilinear
+        animatedImageView.layer.magnificationFilter = .trilinear
         animatedImageView.backgroundColor = Theme.offBackgroundColor
         addSubview(animatedImageView)
         animatedImageView.autoPinEdgesToSuperviewEdges()
@@ -224,7 +213,7 @@ public class ConversationMediaView: UIView {
             }
             strongSelf.tryToLoadMedia(loadMediaBlock: { () -> AnyObject? in
                 guard attachmentStream.isValidImage else {
-                    owsFailDebug("Ignoring invalid attachment.")
+                    Logger.warn("Ignoring invalid attachment.")
                     return nil
                 }
                 guard let filePath = attachmentStream.originalFilePath else {
@@ -253,18 +242,15 @@ public class ConversationMediaView: UIView {
     }
 
     private func configureForStillImage(attachmentStream: TSAttachmentStream) {
-        guard let cacheKey = attachmentStream.uniqueId else {
-            owsFailDebug("Attachment stream missing unique ID.")
-            return
-        }
+        let cacheKey = attachmentStream.uniqueId
         let stillImageView = UIImageView()
         // We need to specify a contentMode since the size of the image
         // might not match the aspect ratio of the view.
         stillImageView.contentMode = .scaleAspectFill
         // Use trilinear filters for better scaling quality at
         // some performance cost.
-        stillImageView.layer.minificationFilter = kCAFilterTrilinear
-        stillImageView.layer.magnificationFilter = kCAFilterTrilinear
+        stillImageView.layer.minificationFilter = .trilinear
+        stillImageView.layer.magnificationFilter = .trilinear
         stillImageView.backgroundColor = Theme.offBackgroundColor
         addSubview(stillImageView)
         stillImageView.autoPinEdgesToSuperviewEdges()
@@ -278,7 +264,7 @@ public class ConversationMediaView: UIView {
             }
             self?.tryToLoadMedia(loadMediaBlock: { () -> AnyObject? in
                 guard attachmentStream.isValidImage else {
-                    owsFailDebug("Ignoring invalid attachment.")
+                    Logger.warn("Ignoring invalid attachment.")
                     return nil
                 }
                 return attachmentStream.thumbnailImageMedium(success: { (image) in
@@ -308,18 +294,15 @@ public class ConversationMediaView: UIView {
     }
 
     private func configureForVideo(attachmentStream: TSAttachmentStream) {
-        guard let cacheKey = attachmentStream.uniqueId else {
-            owsFailDebug("Attachment stream missing unique ID.")
-            return
-        }
+        let cacheKey = attachmentStream.uniqueId
         let stillImageView = UIImageView()
         // We need to specify a contentMode since the size of the image
         // might not match the aspect ratio of the view.
         stillImageView.contentMode = .scaleAspectFill
         // Use trilinear filters for better scaling quality at
         // some performance cost.
-        stillImageView.layer.minificationFilter = kCAFilterTrilinear
-        stillImageView.layer.magnificationFilter = kCAFilterTrilinear
+        stillImageView.layer.minificationFilter = .trilinear
+        stillImageView.layer.magnificationFilter = .trilinear
         stillImageView.backgroundColor = Theme.offBackgroundColor
 
         addSubview(stillImageView)
@@ -341,7 +324,7 @@ public class ConversationMediaView: UIView {
             }
             self?.tryToLoadMedia(loadMediaBlock: { () -> AnyObject? in
                 guard attachmentStream.isValidVideo else {
-                    owsFailDebug("Ignoring invalid attachment.")
+                    Logger.warn("Ignoring invalid attachment.")
                     return nil
                 }
                 return attachmentStream.thumbnailImageMedium(success: { (image) in
@@ -380,7 +363,7 @@ public class ConversationMediaView: UIView {
     private func configure(forError error: MediaError) {
         backgroundColor = (Theme.isDarkThemeEnabled ? .ows_gray90 : .ows_gray05)
         let icon: UIImage
-        switch (error) {
+        switch error {
         case .failed:
             guard let asset = UIImage(named: "media_retry") else {
                 owsFailDebug("Missing image")

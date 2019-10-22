@@ -4,7 +4,7 @@
 
 #import "TSNetworkManager.h"
 #import "AppContext.h"
-#import "NSError+messageSending.h"
+#import "NSError+OWSOperation.h"
 #import "NSURLSessionDataTask+StatusCode.h"
 #import "OWSError.h"
 #import "OWSQueues.h"
@@ -99,9 +99,40 @@ dispatch_queue_t NetworkManagerQueue()
     }
 
     if (canUseAuth && request.shouldHaveAuthorizationHeaders) {
+        OWSAssertDebug(request.authUsername.length > 0);
+        OWSAssertDebug(request.authPassword.length > 0);
         [self.sessionManager.requestSerializer setAuthorizationHeaderFieldWithUsername:request.authUsername
                                                                               password:request.authPassword];
     }
+
+    // Most of TSNetwork requests are destined for the Signal Service.
+    // When we are domain fronting, we have to target a different host and add a path prefix.
+    // For common Signal-Service requests the host/path-prefix logic is handled by the
+    // sessionManager.
+    //
+    // However, for CDS requests, we need to:
+    //  With CC enabled, use the service fronting Hostname but a custom path-prefix
+    //  With CC disabled, use the custom directory host, and no path-prefix
+    NSString *requestURLString;
+    if (self.signalService.isCensorshipCircumventionActive && request.customCensorshipCircumventionPrefix.length > 0) {
+        // All fronted requests go through the same host
+        NSURL *customBaseURL = [self.signalService.domainFrontBaseURL
+            URLByAppendingPathComponent:request.customCensorshipCircumventionPrefix];
+        // Ensure terminal slash for baseURL path, so that NSURL +URLWithString:relativeToURL: works as expected
+        if (![customBaseURL.absoluteString hasSuffix:@"/"]) {
+            customBaseURL = [customBaseURL URLByAppendingPathComponent:@""];
+        }
+        OWSAssertDebug(customBaseURL);
+        requestURLString = [NSURL URLWithString:request.URL.absoluteString relativeToURL:customBaseURL].absoluteString;
+    } else if (request.customHost) {
+        NSURL *customBaseURL = [NSURL URLWithString:request.customHost];
+        OWSAssertDebug(customBaseURL);
+        requestURLString = [NSURL URLWithString:request.URL.absoluteString relativeToURL:customBaseURL].absoluteString;
+    } else {
+        // requests for the signal-service (with or without censorship circumvention)
+        requestURLString = request.URL.absoluteString;
+    }
+    OWSAssertDebug(requestURLString.length > 0);
 
     // Honor the request's headers.
     for (NSString *headerField in request.allHTTPHeaderFields) {
@@ -110,27 +141,21 @@ dispatch_queue_t NetworkManagerQueue()
     }
 
     if ([request.HTTPMethod isEqualToString:@"GET"]) {
-        [self.sessionManager GET:request.URL.absoluteString
+        [self.sessionManager GET:requestURLString
                       parameters:request.parameters
                         progress:nil
                          success:success
                          failure:failure];
     } else if ([request.HTTPMethod isEqualToString:@"POST"]) {
-        [self.sessionManager POST:request.URL.absoluteString
+        [self.sessionManager POST:requestURLString
                        parameters:request.parameters
                          progress:nil
                           success:success
                           failure:failure];
     } else if ([request.HTTPMethod isEqualToString:@"PUT"]) {
-        [self.sessionManager PUT:request.URL.absoluteString
-                      parameters:request.parameters
-                         success:success
-                         failure:failure];
+        [self.sessionManager PUT:requestURLString parameters:request.parameters success:success failure:failure];
     } else if ([request.HTTPMethod isEqualToString:@"DELETE"]) {
-        [self.sessionManager DELETE:request.URL.absoluteString
-                         parameters:request.parameters
-                            success:success
-                            failure:failure];
+        [self.sessionManager DELETE:requestURLString parameters:request.parameters success:success failure:failure];
     } else {
         OWSLogError(@"Trying to perform HTTP operation with unknown verb: %@", request.HTTPMethod);
     }
@@ -182,10 +207,8 @@ dispatch_queue_t NetworkManagerQueue()
 
     OWSSessionManager *_Nullable sessionManager = [self.pool lastObject];
     if (sessionManager) {
-        OWSLogVerbose(@"Cache hit.");
         [self.pool removeLastObject];
     } else {
-        OWSLogVerbose(@"Cache miss.");
         sessionManager = [OWSSessionManager new];
     }
     OWSAssertDebug(sessionManager);
@@ -412,7 +435,7 @@ dispatch_queue_t NetworkManagerQueue()
             break;
         }
         case 400: {
-            OWSLogError(@"The request contains an invalid parameter : %@, %@", networkError.debugDescription, request);
+            OWSLogWarn(@"The request contains an invalid parameter : %@, %@", networkError.debugDescription, request);
 
             error.isRetryable = NO;
 
@@ -420,7 +443,7 @@ dispatch_queue_t NetworkManagerQueue()
             break;
         }
         case 401: {
-            OWSLogError(@"The server returned an error about the authorization header: %@, %@",
+            OWSLogWarn(@"The server returned an error about the authorization header: %@, %@",
                 networkError.debugDescription,
                 request);
             error.isRetryable = NO;
@@ -428,8 +451,13 @@ dispatch_queue_t NetworkManagerQueue()
             failureBlock(task, error);
             break;
         }
+        case 402: {
+            error.isRetryable = NO;
+            failureBlock(task, error);
+            break;
+        }
         case 403: {
-            OWSLogError(
+            OWSLogWarn(
                 @"The server returned an authentication failure: %@, %@", networkError.debugDescription, request);
             error.isRetryable = NO;
             [self deregisterAfterAuthErrorIfNecessary:task request:request statusCode:statusCode];
@@ -437,7 +465,7 @@ dispatch_queue_t NetworkManagerQueue()
             break;
         }
         case 404: {
-            OWSLogError(@"The requested resource could not be found: %@, %@", networkError.debugDescription, request);
+            OWSLogWarn(@"The requested resource could not be found: %@, %@", networkError.debugDescription, request);
             error.isRetryable = NO;
             failureBlock(task, error);
             break;
@@ -513,12 +541,14 @@ dispatch_queue_t NetworkManagerQueue()
     // * etc.
     if ([task.originalRequest.URL.absoluteString hasPrefix:textSecureServerURL]
         && request.shouldHaveAuthorizationHeaders) {
-        if (self.tsAccountManager.isRegisteredAndReady) {
-            [self.tsAccountManager setIsDeregistered:YES];
-        } else {
-            OWSFailDebug(
-                @"Ignoring auth failure; not registered and ready: %@.", task.originalRequest.URL.absoluteString);
-        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.tsAccountManager.isRegisteredAndReady) {
+                [self.tsAccountManager setIsDeregistered:YES];
+            } else {
+                OWSLogWarn(
+                    @"Ignoring auth failure; not registered and ready: %@.", task.originalRequest.URL.absoluteString);
+            }
+        });
     } else {
         OWSLogWarn(@"Ignoring %d for URL: %@", (int)statusCode, task.originalRequest.URL.absoluteString);
     }

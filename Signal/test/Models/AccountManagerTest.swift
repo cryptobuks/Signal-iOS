@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import XCTest
@@ -18,17 +18,17 @@ enum PushNotificationRequestResult: String {
 }
 
 class FailingTSAccountManager: TSAccountManager {
-    override public init(primaryStorage: OWSPrimaryStorage) {
+    override public init() {
         AssertIsOnMainThread()
 
-        super.init(primaryStorage: primaryStorage)
+        super.init()
 
         self.phoneNumberAwaitingVerification = "+13235555555"
     }
 
     override func verifyAccount(withCode: String,
                                 pin: String?,
-                                success: @escaping () -> Void, failure: @escaping (Error) -> Void) {
+                                success: @escaping (Any?) -> Void, failure: @escaping (Error) -> Void) {
         failure(VerificationFailedError())
     }
 
@@ -44,8 +44,8 @@ class FailingTSAccountManager: TSAccountManager {
 class VerifyingTSAccountManager: FailingTSAccountManager {
     override func verifyAccount(withCode: String,
                                 pin: String?,
-                                success: @escaping () -> Void, failure: @escaping (Error) -> Void) {
-        success()
+                                success: @escaping (Any?) -> Void, failure: @escaping (Error) -> Void) {
+        success(nil)
     }
 
     override func performUpdateAccountAttributes() -> AnyPromise {
@@ -67,7 +67,7 @@ class AccountManagerTest: SignalBaseTest {
     override func setUp() {
         super.setUp()
 
-        let tsAccountManager = FailingTSAccountManager(primaryStorage: OWSPrimaryStorage.shared())
+        let tsAccountManager = FailingTSAccountManager()
         let sskEnvironment = SSKEnvironment.shared as! MockSSKEnvironment
         sskEnvironment.tsAccountManager = tsAccountManager
     }
@@ -118,7 +118,7 @@ class AccountManagerTest: SignalBaseTest {
     }
 
     func testSuccessfulRegistration() {
-        let tsAccountManager = TokenObtainingTSAccountManager(primaryStorage: OWSPrimaryStorage.shared())
+        let tsAccountManager = TokenObtainingTSAccountManager()
         let sskEnvironment = SSKEnvironment.shared as! MockSSKEnvironment
         sskEnvironment.tsAccountManager = tsAccountManager
 

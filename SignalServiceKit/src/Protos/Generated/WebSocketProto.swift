@@ -1,8 +1,9 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
+import SignalCoreKit
 
 // WARNING: This code is generated. Only edit within the markers.
 
@@ -44,15 +45,36 @@ public enum WebSocketProtoError: Error {
             setRequestID(requestID)
         }
 
-        @objc public func setVerb(_ valueParam: String) {
+        @objc
+        @available(swift, obsoleted: 1.0)
+        public func setVerb(_ valueParam: String?) {
+            guard let valueParam = valueParam else { return }
             proto.verb = valueParam
         }
 
-        @objc public func setPath(_ valueParam: String) {
+        public func setVerb(_ valueParam: String) {
+            proto.verb = valueParam
+        }
+
+        @objc
+        @available(swift, obsoleted: 1.0)
+        public func setPath(_ valueParam: String?) {
+            guard let valueParam = valueParam else { return }
             proto.path = valueParam
         }
 
-        @objc public func setBody(_ valueParam: Data) {
+        public func setPath(_ valueParam: String) {
+            proto.path = valueParam
+        }
+
+        @objc
+        @available(swift, obsoleted: 1.0)
+        public func setBody(_ valueParam: Data?) {
+            guard let valueParam = valueParam else { return }
+            proto.body = valueParam
+        }
+
+        public func setBody(_ valueParam: Data) {
             proto.body = valueParam
         }
 
@@ -66,7 +88,8 @@ public enum WebSocketProtoError: Error {
             proto.headers = wrappedItems
         }
 
-        @objc public func setRequestID(_ valueParam: UInt64) {
+        @objc
+        public func setRequestID(_ valueParam: UInt64) {
             proto.requestID = valueParam
         }
 
@@ -205,15 +228,24 @@ extension WebSocketProtoWebSocketRequestMessage.WebSocketProtoWebSocketRequestMe
             setStatus(status)
         }
 
-        @objc public func setRequestID(_ valueParam: UInt64) {
+        @objc
+        public func setRequestID(_ valueParam: UInt64) {
             proto.requestID = valueParam
         }
 
-        @objc public func setStatus(_ valueParam: UInt32) {
+        @objc
+        public func setStatus(_ valueParam: UInt32) {
             proto.status = valueParam
         }
 
-        @objc public func setMessage(_ valueParam: String) {
+        @objc
+        @available(swift, obsoleted: 1.0)
+        public func setMessage(_ valueParam: String?) {
+            guard let valueParam = valueParam else { return }
+            proto.message = valueParam
+        }
+
+        public func setMessage(_ valueParam: String) {
             proto.message = valueParam
         }
 
@@ -227,7 +259,14 @@ extension WebSocketProtoWebSocketRequestMessage.WebSocketProtoWebSocketRequestMe
             proto.headers = wrappedItems
         }
 
-        @objc public func setBody(_ valueParam: Data) {
+        @objc
+        @available(swift, obsoleted: 1.0)
+        public func setBody(_ valueParam: Data?) {
+            guard let valueParam = valueParam else { return }
+            proto.body = valueParam
+        }
+
+        public func setBody(_ valueParam: Data) {
             proto.body = valueParam
         }
 
@@ -360,13 +399,16 @@ extension WebSocketProtoWebSocketResponseMessage.WebSocketProtoWebSocketResponse
 
     // MARK: - WebSocketProtoWebSocketMessageBuilder
 
-    @objc public class func builder(type: WebSocketProtoWebSocketMessageType) -> WebSocketProtoWebSocketMessageBuilder {
-        return WebSocketProtoWebSocketMessageBuilder(type: type)
+    @objc public class func builder() -> WebSocketProtoWebSocketMessageBuilder {
+        return WebSocketProtoWebSocketMessageBuilder()
     }
 
     // asBuilder() constructs a builder that reflects the proto's contents.
     @objc public func asBuilder() -> WebSocketProtoWebSocketMessageBuilder {
-        let builder = WebSocketProtoWebSocketMessageBuilder(type: type)
+        let builder = WebSocketProtoWebSocketMessageBuilder()
+        if let _value = type {
+            builder.setType(_value)
+        }
         if let _value = request {
             builder.setRequest(_value)
         }
@@ -382,21 +424,30 @@ extension WebSocketProtoWebSocketResponseMessage.WebSocketProtoWebSocketResponse
 
         @objc fileprivate override init() {}
 
-        @objc fileprivate init(type: WebSocketProtoWebSocketMessageType) {
-            super.init()
-
-            setType(type)
-        }
-
-        @objc public func setType(_ valueParam: WebSocketProtoWebSocketMessageType) {
+        @objc
+        public func setType(_ valueParam: WebSocketProtoWebSocketMessageType) {
             proto.type = WebSocketProtoWebSocketMessageTypeUnwrap(valueParam)
         }
 
-        @objc public func setRequest(_ valueParam: WebSocketProtoWebSocketRequestMessage) {
+        @objc
+        @available(swift, obsoleted: 1.0)
+        public func setRequest(_ valueParam: WebSocketProtoWebSocketRequestMessage?) {
+            guard let valueParam = valueParam else { return }
             proto.request = valueParam.proto
         }
 
-        @objc public func setResponse(_ valueParam: WebSocketProtoWebSocketResponseMessage) {
+        public func setRequest(_ valueParam: WebSocketProtoWebSocketRequestMessage) {
+            proto.request = valueParam.proto
+        }
+
+        @objc
+        @available(swift, obsoleted: 1.0)
+        public func setResponse(_ valueParam: WebSocketProtoWebSocketResponseMessage?) {
+            guard let valueParam = valueParam else { return }
+            proto.response = valueParam.proto
+        }
+
+        public func setResponse(_ valueParam: WebSocketProtoWebSocketResponseMessage) {
             proto.response = valueParam.proto
         }
 
@@ -411,18 +462,32 @@ extension WebSocketProtoWebSocketResponseMessage.WebSocketProtoWebSocketResponse
 
     fileprivate let proto: WebSocketProtos_WebSocketMessage
 
-    @objc public let type: WebSocketProtoWebSocketMessageType
-
     @objc public let request: WebSocketProtoWebSocketRequestMessage?
 
     @objc public let response: WebSocketProtoWebSocketResponseMessage?
 
+    public var type: WebSocketProtoWebSocketMessageType? {
+        guard proto.hasType else {
+            return nil
+        }
+        return WebSocketProtoWebSocketMessage.WebSocketProtoWebSocketMessageTypeWrap(proto.type)
+    }
+    // This "unwrapped" accessor should only be used if the "has value" accessor has already been checked.
+    @objc public var unwrappedType: WebSocketProtoWebSocketMessageType {
+        if !hasType {
+            // TODO: We could make this a crashing assert.
+            owsFailDebug("Unsafe unwrap of missing optional: WebSocketMessage.type.")
+        }
+        return WebSocketProtoWebSocketMessage.WebSocketProtoWebSocketMessageTypeWrap(proto.type)
+    }
+    @objc public var hasType: Bool {
+        return proto.hasType
+    }
+
     private init(proto: WebSocketProtos_WebSocketMessage,
-                 type: WebSocketProtoWebSocketMessageType,
                  request: WebSocketProtoWebSocketRequestMessage?,
                  response: WebSocketProtoWebSocketResponseMessage?) {
         self.proto = proto
-        self.type = type
         self.request = request
         self.response = response
     }
@@ -438,11 +503,6 @@ extension WebSocketProtoWebSocketResponseMessage.WebSocketProtoWebSocketResponse
     }
 
     fileprivate class func parseProto(_ proto: WebSocketProtos_WebSocketMessage) throws -> WebSocketProtoWebSocketMessage {
-        guard proto.hasType else {
-            throw WebSocketProtoError.invalidProtobuf(description: "\(logTag) missing required field: type")
-        }
-        let type = WebSocketProtoWebSocketMessageTypeWrap(proto.type)
-
         var request: WebSocketProtoWebSocketRequestMessage? = nil
         if proto.hasRequest {
             request = try WebSocketProtoWebSocketRequestMessage.parseProto(proto.request)
@@ -458,7 +518,6 @@ extension WebSocketProtoWebSocketResponseMessage.WebSocketProtoWebSocketResponse
         // MARK: - End Validation Logic for WebSocketProtoWebSocketMessage -
 
         let result = WebSocketProtoWebSocketMessage(proto: proto,
-                                                    type: type,
                                                     request: request,
                                                     response: response)
         return result

@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 #import "OWSError.h"
@@ -7,13 +7,18 @@
 NS_ASSUME_NONNULL_BEGIN
 
 NSString *const OWSSignalServiceKitErrorDomain = @"OWSSignalServiceKitErrorDomain";
-NSString *const OWSErrorRecipientIdentifierKey = @"OWSErrorKeyRecipientIdentifier";
+NSString *const OWSErrorRecipientAddressKey = @"OWSErrorRecipientAddress";
 
 NSError *OWSErrorWithCodeDescription(OWSErrorCode code, NSString *description)
 {
+    return OWSErrorWithUserInfo(code, @{ NSLocalizedDescriptionKey: description });
+}
+
+NSError *OWSErrorWithUserInfo(OWSErrorCode code, NSDictionary *userInfo)
+{
     return [NSError errorWithDomain:OWSSignalServiceKitErrorDomain
                                code:code
-                           userInfo:@{ NSLocalizedDescriptionKey: description }];
+                           userInfo:userInfo];
 }
 
 NSError *OWSErrorMakeUnableToProcessServerResponseError()
@@ -42,12 +47,12 @@ NSError *OWSErrorMakeAssertionError(NSString *description)
         NSLocalizedString(@"ERROR_DESCRIPTION_UNKNOWN_ERROR", @"Worst case generic error message"));
 }
 
-NSError *OWSErrorMakeUntrustedIdentityError(NSString *description, NSString *recipientId)
+NSError *OWSErrorMakeUntrustedIdentityError(NSString *description, SignalServiceAddress *address)
 {
     return [NSError
         errorWithDomain:OWSSignalServiceKitErrorDomain
                    code:OWSErrorCodeUntrustedIdentity
-               userInfo:@{ NSLocalizedDescriptionKey : description, OWSErrorRecipientIdentifierKey : recipientId }];
+               userInfo:@{ NSLocalizedDescriptionKey : description, OWSErrorRecipientAddressKey : address }];
 }
 
 NSError *OWSErrorMakeMessageSendDisabledDueToPreKeyUpdateFailuresError()
@@ -62,13 +67,6 @@ NSError *OWSErrorMakeMessageSendFailedDueToBlockListError()
     return OWSErrorWithCodeDescription(OWSErrorCodeMessageSendFailedToBlockList,
         NSLocalizedString(@"ERROR_DESCRIPTION_MESSAGE_SEND_FAILED_DUE_TO_BLOCK_LIST",
             @"Error message indicating that message send failed due to block list"));
-}
-
-NSError *OWSErrorMakeWriteAttachmentDataError()
-{
-    return OWSErrorWithCodeDescription(OWSErrorCodeCouldNotWriteAttachmentData,
-        NSLocalizedString(@"ERROR_DESCRIPTION_MESSAGE_SEND_FAILED_DUE_TO_FAILED_ATTACHMENT_WRITE",
-            @"Error message indicating that message send failed due to failed attachment write"));
 }
 
 NS_ASSUME_NONNULL_END

@@ -32,11 +32,20 @@ public class MessageFetcherJob: NSObject {
         return OWSSignalService.sharedInstance()
     }
 
+    private var tsAccountManager: TSAccountManager {
+        return TSAccountManager.sharedInstance()
+    }
+
     // MARK: 
 
     @discardableResult
     public func run() -> Promise<Void> {
         Logger.debug("")
+
+        guard tsAccountManager.isRegisteredAndReady else {
+            owsFailDebug("isRegisteredAndReady was unexpectedly false")
+            return Promise.value(())
+        }
 
         guard signalService.isCensorshipCircumventionActive else {
             Logger.debug("delegating message fetching to SocketManager since we're using normal transport.")
@@ -141,10 +150,11 @@ public class MessageFetcherJob: NSObject {
                 throw ParamParser.ParseError.invalidFormat("timestamp")
             }
 
-            let builder = SSKProtoEnvelope.builder(type: type, timestamp: timestamp)
+            let builder = SSKProtoEnvelope.builder(timestamp: timestamp)
+            builder.setType(type)
 
             if let source: String = try params.optional(key: "source") {
-                builder.setSource(source)
+                builder.setSourceE164(source)
             }
 
             if let sourceDevice: UInt32 = try params.optional(key: "sourceDevice") {
@@ -199,8 +209,8 @@ public class MessageFetcherJob: NSObject {
         let request: TSRequest
         if let serverGuid = envelope.serverGuid, serverGuid.count > 0 {
             request = OWSRequestFactory.acknowledgeMessageDeliveryRequest(withServerGuid: serverGuid)
-        } else if let source = envelope.source, source.count > 0, envelope.timestamp > 0 {
-            request = OWSRequestFactory.acknowledgeMessageDeliveryRequest(withSource: source, timestamp: envelope.timestamp)
+        } else if let sourceAddress = envelope.sourceAddress, sourceAddress.isValid, envelope.timestamp > 0 {
+            request = OWSRequestFactory.acknowledgeMessageDeliveryRequest(with: sourceAddress, timestamp: envelope.timestamp)
         } else {
             owsFailDebug("Cannot ACK message which has neither source, nor server GUID and timestamp.")
             return

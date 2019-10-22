@@ -3,7 +3,6 @@
 //
 
 #import "MockSSKEnvironment.h"
-#import "ContactDiscoveryService.h"
 #import "OWS2FAManager.h"
 #import "OWSAttachmentDownloads.h"
 #import "OWSBatchMessageProcessor.h"
@@ -21,13 +20,19 @@
 #import "OWSOutgoingReceiptManager.h"
 #import "OWSPrimaryStorage.h"
 #import "OWSReadReceiptManager.h"
+#import "SSKPreKeyStore.h"
+#import "SSKSessionStore.h"
+#import "SSKSignedPreKeyStore.h"
+#import "StorageCoordinator.h"
 #import "TSAccountManager.h"
 #import "TSSocketManager.h"
+#import <SignalServiceKit/OWSBackgroundTask.h>
+#import <SignalServiceKit/ProfileManagerProtocol.h>
 #import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
-#ifdef DEBUG
+#ifdef TESTABLE_BUILD
 
 @interface OWSPrimaryStorage (Tests)
 
@@ -42,42 +47,59 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (void)activate
 {
+    [SMKEnvironment setShared:[[SMKEnvironment alloc] initWithAccountIdFinder:[OWSAccountIdFinder new]]];
+
     MockSSKEnvironment *instance = [self new];
     [self setShared:instance];
     [instance configure];
+
+    [instance warmCaches];
 }
 
 - (instancetype)init
 {
-    OWSPrimaryStorage *primaryStorage = [MockSSKEnvironment createPrimaryStorageForTests];
+    // Ensure that OWSBackgroundTaskManager is created now.
+    [OWSBackgroundTaskManager sharedManager];
+
+    StorageCoordinator *storageCoordinator = [StorageCoordinator new];
+    SDSDatabaseStorage *databaseStorage = storageCoordinator.databaseStorage;
+    // Unlike AppSetup, we always load YDB in the tests.
+    OWSPrimaryStorage *primaryStorage = databaseStorage.yapPrimaryStorage;
+
     id<ContactsManagerProtocol> contactsManager = [OWSFakeContactsManager new];
+    OWSLinkPreviewManager *linkPreviewManager = [OWSLinkPreviewManager new];
     TSNetworkManager *networkManager = [OWSFakeNetworkManager new];
     OWSMessageSender *messageSender = [OWSFakeMessageSender new];
-    SSKMessageSenderJobQueue *messageSenderJobQueue = [SSKMessageSenderJobQueue new];
+    MessageSenderJobQueue *messageSenderJobQueue = [MessageSenderJobQueue new];
 
-    OWSMessageManager *messageManager = [[OWSMessageManager alloc] initWithPrimaryStorage:primaryStorage];
-    OWSBlockingManager *blockingManager = [[OWSBlockingManager alloc] initWithPrimaryStorage:primaryStorage];
-    OWSIdentityManager *identityManager = [[OWSIdentityManager alloc] initWithPrimaryStorage:primaryStorage];
-    id<OWSUDManager> udManager = [[OWSUDManagerImpl alloc] initWithPrimaryStorage:primaryStorage];
-    OWSMessageDecrypter *messageDecrypter = [[OWSMessageDecrypter alloc] initWithPrimaryStorage:primaryStorage];
-    OWSBatchMessageProcessor *batchMessageProcessor =
-        [[OWSBatchMessageProcessor alloc] initWithPrimaryStorage:primaryStorage];
-    OWSMessageReceiver *messageReceiver = [[OWSMessageReceiver alloc] initWithPrimaryStorage:primaryStorage];
+    OWSMessageManager *messageManager = [OWSMessageManager new];
+    OWSBlockingManager *blockingManager = [OWSBlockingManager new];
+    OWSIdentityManager *identityManager = [[OWSIdentityManager alloc] initWithDatabaseStorage:databaseStorage];
+    SSKSessionStore *sessionStore = [SSKSessionStore new];
+    SSKPreKeyStore *preKeyStore = [SSKPreKeyStore new];
+    SSKSignedPreKeyStore *signedPreKeyStore = [SSKSignedPreKeyStore new];
+    id<OWSUDManager> udManager = [OWSUDManagerImpl new];
+    OWSMessageDecrypter *messageDecrypter = [OWSMessageDecrypter new];
+    SSKMessageDecryptJobQueue *messageDecryptJobQueue = [SSKMessageDecryptJobQueue new];
+    OWSBatchMessageProcessor *batchMessageProcessor = [OWSBatchMessageProcessor new];
+    OWSMessageReceiver *messageReceiver = [OWSMessageReceiver new];
     TSSocketManager *socketManager = [[TSSocketManager alloc] init];
-    TSAccountManager *tsAccountManager = [[TSAccountManager alloc] initWithPrimaryStorage:primaryStorage];
-    OWS2FAManager *ows2FAManager = [[OWS2FAManager alloc] initWithPrimaryStorage:primaryStorage];
-    OWSDisappearingMessagesJob *disappearingMessagesJob =
-        [[OWSDisappearingMessagesJob alloc] initWithPrimaryStorage:primaryStorage];
-    ContactDiscoveryService *contactDiscoveryService = [[ContactDiscoveryService alloc] initDefault];
-    OWSReadReceiptManager *readReceiptManager = [[OWSReadReceiptManager alloc] initWithPrimaryStorage:primaryStorage];
-    OWSOutgoingReceiptManager *outgoingReceiptManager =
-        [[OWSOutgoingReceiptManager alloc] initWithPrimaryStorage:primaryStorage];
+    TSAccountManager *tsAccountManager = [TSAccountManager new];
+    OWS2FAManager *ows2FAManager = [OWS2FAManager new];
+    OWSDisappearingMessagesJob *disappearingMessagesJob = [OWSDisappearingMessagesJob new];
+    OWSReadReceiptManager *readReceiptManager = [OWSReadReceiptManager new];
+    OWSOutgoingReceiptManager *outgoingReceiptManager = [OWSOutgoingReceiptManager new];
     id<SSKReachabilityManager> reachabilityManager = [SSKReachabilityManagerImpl new];
     id<OWSSyncManagerProtocol> syncManager = [[OWSMockSyncManager alloc] init];
     id<OWSTypingIndicators> typingIndicators = [[OWSTypingIndicatorsImpl alloc] init];
     OWSAttachmentDownloads *attachmentDownloads = [[OWSAttachmentDownloads alloc] init];
+    StickerManager *stickerManager = [[StickerManager alloc] init];
+    SignalServiceAddressCache *signalServiceAddressCache = [SignalServiceAddressCache new];
+    AccountServiceClient *accountServiceClient = [FakeAccountServiceClient new];
+    OWSFakeStorageServiceManager *storageServiceManager = [OWSFakeStorageServiceManager new];
 
     self = [super initWithContactsManager:contactsManager
+                       linkPreviewManager:linkPreviewManager
                             messageSender:messageSender
                     messageSenderJobQueue:messageSenderJobQueue
                            profileManager:[OWSFakeProfileManager new]
@@ -87,21 +109,30 @@ NS_ASSUME_NONNULL_BEGIN
                            messageManager:messageManager
                           blockingManager:blockingManager
                           identityManager:identityManager
+                             sessionStore:sessionStore
+                        signedPreKeyStore:signedPreKeyStore
+                              preKeyStore:preKeyStore
                                 udManager:udManager
                          messageDecrypter:messageDecrypter
+                   messageDecryptJobQueue:messageDecryptJobQueue
                     batchMessageProcessor:batchMessageProcessor
                           messageReceiver:messageReceiver
                             socketManager:socketManager
                          tsAccountManager:tsAccountManager
                             ows2FAManager:ows2FAManager
                   disappearingMessagesJob:disappearingMessagesJob
-                  contactDiscoveryService:contactDiscoveryService
                        readReceiptManager:readReceiptManager
                    outgoingReceiptManager:outgoingReceiptManager
                       reachabilityManager:reachabilityManager
                               syncManager:syncManager
                          typingIndicators:typingIndicators
-                      attachmentDownloads:attachmentDownloads];
+                      attachmentDownloads:attachmentDownloads
+                           stickerManager:stickerManager
+                          databaseStorage:databaseStorage
+                signalServiceAddressCache:signalServiceAddressCache
+                     accountServiceClient:accountServiceClient
+                    storageServiceManager:storageServiceManager
+                       storageCoordinator:storageCoordinator];
 
     if (!self) {
         return nil;
@@ -109,23 +140,37 @@ NS_ASSUME_NONNULL_BEGIN
 
     self.callMessageHandler = [OWSFakeCallMessageHandler new];
     self.notificationsManager = [NoopNotificationsManager new];
-    return self;
-}
 
-+ (OWSPrimaryStorage *)createPrimaryStorageForTests
-{
-    OWSPrimaryStorage *primaryStorage = [[OWSPrimaryStorage alloc] initStorage];
-    [OWSPrimaryStorage protectFiles];
-    return primaryStorage;
+    return self;
 }
 
 - (void)configure
 {
-    __block dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-    [OWSStorage registerExtensionsWithMigrationBlock:^() {
-        dispatch_semaphore_signal(semaphore);
-    }];
-    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+    if (self.databaseStorage.canLoadYdb) {
+        __block dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+        [OWSStorage registerExtensionsWithCompletionBlock:^() {
+            [self.storageCoordinator markStorageSetupAsComplete];
+
+            dispatch_semaphore_signal(semaphore);
+        }];
+
+        // Registering extensions is a complicated process than can move
+        // on and off the main thread.  While we wait for it to complete,
+        // we need to process the run loop so that the work on the main
+        // thread can be completed.
+        while (YES) {
+            // Wait up to 10 ms.
+            BOOL success
+                = dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_MSEC)))
+                == 0;
+            if (success) {
+                break;
+            }
+
+            // Process a single "source" (e.g. item) on the default run loop.
+            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.0, false);
+        }
+    }
 }
 
 @end

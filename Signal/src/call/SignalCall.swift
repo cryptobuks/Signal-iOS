@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
@@ -42,7 +42,7 @@ protocol CallObserver: class {
     var observers = [Weak<CallObserver>]()
 
     @objc
-    let remotePhoneNumber: String
+    let remoteAddress: SignalServiceAddress
 
     var isTerminated: Bool {
         switch state {
@@ -154,27 +154,27 @@ protocol CallObserver: class {
 
     // MARK: Initializers and Factory Methods
 
-    init(direction: CallDirection, localId: UUID, signalingId: UInt64, state: CallState, remotePhoneNumber: String) {
+    init(direction: CallDirection, localId: UUID, signalingId: UInt64, state: CallState, remoteAddress: SignalServiceAddress) {
         self.direction = direction
         self.localId = localId
         self.signalingId = signalingId
         self.state = state
-        self.remotePhoneNumber = remotePhoneNumber
-        self.thread = TSContactThread.getOrCreateThread(contactId: remotePhoneNumber)
-        self.audioActivity = AudioActivity(audioDescription: "[SignalCall] with \(remotePhoneNumber)", behavior: .call)
+        self.remoteAddress = remoteAddress
+        self.thread = TSContactThread.getOrCreateThread(contactAddress: remoteAddress)
+        self.audioActivity = AudioActivity(audioDescription: "[SignalCall] with \(remoteAddress)", behavior: .call)
     }
 
     // A string containing the three identifiers for this call.
     var identifiersForLogs: String {
-        return "{\(remotePhoneNumber), \(localId), \(signalingId)}"
+        return "{\(remoteAddress), \(localId), \(signalingId)}"
     }
 
-    class func outgoingCall(localId: UUID, remotePhoneNumber: String) -> SignalCall {
-        return SignalCall(direction: .outgoing, localId: localId, signalingId: newCallSignalingId(), state: .dialing, remotePhoneNumber: remotePhoneNumber)
+    class func outgoingCall(localId: UUID, remoteAddress: SignalServiceAddress) -> SignalCall {
+        return SignalCall(direction: .outgoing, localId: localId, signalingId: newCallSignalingId(), state: .dialing, remoteAddress: remoteAddress)
     }
 
-    class func incomingCall(localId: UUID, remotePhoneNumber: String, signalingId: UInt64) -> SignalCall {
-        return SignalCall(direction: .incoming, localId: localId, signalingId: signalingId, state: .answering, remotePhoneNumber: remotePhoneNumber)
+    class func incomingCall(localId: UUID, remoteAddress: SignalServiceAddress, signalingId: UInt64) -> SignalCall {
+        return SignalCall(direction: .incoming, localId: localId, signalingId: signalingId, state: .answering, remoteAddress: remoteAddress)
     }
 
     // -
@@ -191,7 +191,7 @@ protocol CallObserver: class {
     func removeObserver(_ observer: CallObserver) {
         AssertIsOnMainThread()
 
-        while let index = observers.index(where: { $0.value === observer }) {
+        while let index = observers.firstIndex(where: { $0.value === observer }) {
             observers.remove(at: index)
         }
     }
@@ -211,12 +211,12 @@ protocol CallObserver: class {
 
         // Mark incomplete calls as completed if call has connected.
         if state == .connected &&
-            callRecord.callType == RPRecentCallTypeOutgoingIncomplete {
-            callRecord.updateCallType(RPRecentCallTypeOutgoing)
+            callRecord.callType == .outgoingIncomplete {
+            callRecord.updateCallType(.outgoing)
         }
         if state == .connected &&
-            callRecord.callType == RPRecentCallTypeIncomingIncomplete {
-            callRecord.updateCallType(RPRecentCallTypeIncoming)
+            callRecord.callType == .incomingIncomplete {
+            callRecord.updateCallType(.incoming)
         }
     }
 

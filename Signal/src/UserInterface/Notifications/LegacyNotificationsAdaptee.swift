@@ -137,12 +137,12 @@ extension LegacyNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         return promise
     }
 
-    func notify(category: AppNotificationCategory, title: String?, body: String, userInfo: [AnyHashable: Any], sound: OWSSound?) {
+    func notify(category: AppNotificationCategory, title: String?, body: String, threadIdentifier: String?, userInfo: [AnyHashable: Any], sound: OWSSound?) {
         AssertIsOnMainThread()
-        notify(category: category, title: title, body: body, userInfo: userInfo, sound: sound, replacingIdentifier: nil)
+        notify(category: category, title: title, body: body, threadIdentifier: threadIdentifier, userInfo: userInfo, sound: sound, replacingIdentifier: nil)
     }
 
-    func notify(category: AppNotificationCategory, title: String?, body: String, userInfo: [AnyHashable: Any], sound: OWSSound?, replacingIdentifier: String?) {
+    func notify(category: AppNotificationCategory, title: String?, body: String, threadIdentifier: String?, userInfo: [AnyHashable: Any], sound: OWSSound?, replacingIdentifier: String?) {
         AssertIsOnMainThread()
         guard UIApplication.shared.applicationState != .active else {
             if let sound = sound {
@@ -154,12 +154,19 @@ extension LegacyNotificationPresenterAdaptee: NotificationPresenterAdaptee {
             return
         }
 
+        // UILocalNotification strips anything that looks like a printf
+        // formatting character from the notification body, so if we want to
+        // display a literal "%" in a notification it must be escaped.
+        // see https://developer.apple.com/documentation/uikit/uilocalnotification/1616646-alertbody
+        // for more details. UNUserNotifications do not require this.
+        let escapedBody = body.replacingOccurrences(of: "%", with: "%%")
+
         let alertBody: String
         if let title = title {
             // TODO - Make this a format string for better l10n
-            alertBody = title.rtlSafeAppend(":").rtlSafeAppend(" ").rtlSafeAppend(body)
+            alertBody = title + ":" + " " + escapedBody
         } else {
-            alertBody = body
+            alertBody = escapedBody
         }
 
         let notification = UILocalNotification()
@@ -222,6 +229,17 @@ extension LegacyNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         for (_, notification) in notifications {
             cancelNotification(notification)
         }
+        type(of: self).clearExistingNotifications()
+    }
+
+    public class func clearExistingNotifications() {
+        // This will cancel all "scheduled" local notifications that haven't
+        // been presented yet.
+        UIApplication.shared.cancelAllLocalNotifications()
+        // To clear all already presented local notifications, we need to
+        // set the app badge number to zero after setting it to a non-zero value.
+        UIApplication.shared.applicationIconBadgeNumber = 1
+        UIApplication.shared.applicationIconBadgeNumber = 0
     }
 }
 

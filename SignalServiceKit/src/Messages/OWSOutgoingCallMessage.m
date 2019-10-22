@@ -13,6 +13,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 @implementation OWSOutgoingCallMessage
 
+#pragma mark - Dependencies
+
+- (SDSDatabaseStorage *)databaseStorage
+{
+    return SDSDatabaseStorage.shared;
+}
+
+#pragma mark -
+
 - (instancetype)initWithThread:(TSThread *)thread
 {
     // MJK TODO - safe to remove senderTimestamp
@@ -26,7 +35,9 @@ NS_ASSUME_NONNULL_BEGIN
                                   groupMetaMessage:TSGroupMetaMessageUnspecified
                                      quotedMessage:nil
                                       contactShare:nil
-                                       linkPreview:nil];
+                                       linkPreview:nil
+                                    messageSticker:nil
+                                 isViewOnceMessage:NO];
     if (!self) {
         return self;
     }
@@ -110,12 +121,14 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 - (nullable NSData *)buildPlainTextData:(SignalRecipient *)recipient
+                                 thread:(TSThread *)thread
+                            transaction:(SDSAnyReadTransaction *)transaction
 {
     OWSAssertDebug(recipient);
 
     SSKProtoContentBuilder *builder = [SSKProtoContent builder];
-    [builder setCallMessage:[self buildCallMessage:recipient.recipientId]];
-    
+    builder.callMessage = [self buildCallMessage:recipient.address thread:thread transaction:transaction];
+
     NSError *error;
     NSData *_Nullable data = [builder buildSerializedDataAndReturnError:&error];
     if (error || !data) {
@@ -125,7 +138,9 @@ NS_ASSUME_NONNULL_BEGIN
     return data;
 }
 
-- (nullable SSKProtoCallMessage *)buildCallMessage:(NSString *)recipientId
+- (nullable SSKProtoCallMessage *)buildCallMessage:(SignalServiceAddress *)address
+                                            thread:(TSThread *)thread
+                                       transaction:(SDSAnyReadTransaction *)transaction
 {
     SSKProtoCallMessageBuilder *builder = [SSKProtoCallMessage builder];
 
@@ -149,7 +164,10 @@ NS_ASSUME_NONNULL_BEGIN
         [builder setBusy:self.busyMessage];
     }
 
-    [ProtoUtils addLocalProfileKeyIfNecessary:self.thread recipientId:recipientId callMessageBuilder:builder];
+    [ProtoUtils addLocalProfileKeyIfNecessary:thread
+                                      address:address
+                           callMessageBuilder:builder
+                                  transaction:transaction];
 
     NSError *error;
     SSKProtoCallMessage *_Nullable result = [builder buildAndReturnError:&error];

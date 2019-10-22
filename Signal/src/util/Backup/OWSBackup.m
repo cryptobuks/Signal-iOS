@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 #import "OWSBackup.h"
@@ -7,18 +7,16 @@
 #import "OWSBackupIO.h"
 #import "OWSBackupImportJob.h"
 #import "Signal-Swift.h"
+#import <CloudKit/CloudKit.h>
 #import <PromiseKit/AnyPromise.h>
 #import <SignalCoreKit/Randomness.h>
 #import <SignalServiceKit/OWSIdentityManager.h>
-#import <SignalServiceKit/YapDatabaseConnection+OWS.h>
-
-@import CloudKit;
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 NSString *const NSNotificationNameBackupStateDidChange = @"NSNotificationNameBackupStateDidChange";
 
-NSString *const OWSPrimaryStorage_OWSBackupCollection = @"OWSPrimaryStorage_OWSBackupCollection";
 NSString *const OWSBackup_IsBackupEnabledKey = @"OWSBackup_IsBackupEnabledKey";
 NSString *const OWSBackup_LastExportSuccessDateKey = @"OWSBackup_LastExportSuccessDateKey";
 NSString *const OWSBackup_LastExportFailureDateKey = @"OWSBackup_LastExportFailureDateKey";
@@ -55,13 +53,14 @@ NSString *NSStringForBackupImportState(OWSBackupState state)
     }
 }
 
+// POST GRDB TODO: Revisit after GRDB migration.
 NSArray<NSString *> *MiscCollectionsToBackup(void)
 {
     return @[
-             kOWSBlockingManager_BlockListCollection,
-             OWSUserProfile.collection,
-             SSKIncrementingIdFinder.collectionName,
-             OWSPreferencesSignalDatabaseCollection,
+        OWSBlockingManager.keyValueStore.collection,
+        OWSUserProfile.collection,
+        SSKIncrementingIdFinder.collectionName,
+        OWSPreferencesSignalDatabaseCollection,
     ];
 }
 
@@ -78,8 +77,6 @@ NSError *OWSBackupErrorWithDescription(NSString *description)
 
 // TODO: Observe Reachability.
 @interface OWSBackup () <OWSBackupJobDelegate>
-
-@property (nonatomic, readonly) YapDatabaseConnection *dbConnection;
 
 // This property should only be accessed on the main thread.
 @property (nonatomic, nullable) OWSBackupExportJob *backupExportJob;
@@ -102,7 +99,22 @@ NSError *OWSBackupErrorWithDescription(NSString *description)
 
 @implementation OWSBackup
 
-@synthesize dbConnection = _dbConnection;
+- (SDSDatabaseStorage *)databaseStorage
+{
+    return SDSDatabaseStorage.shared;
+}
+
+- (SDSKeyValueStore *)keyValueStore
+{
+    static SDSKeyValueStore *keyValueStore = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        keyValueStore = [[SDSKeyValueStore alloc] initWithCollection:@"OWSBackupCollection"];
+    });
+    return keyValueStore;
+}
+
+#pragma mark -
 
 + (instancetype)sharedManager
 {
@@ -138,6 +150,10 @@ NSError *OWSBackupErrorWithDescription(NSString *description)
 
 - (void)setup
 {
+    if (!OWSBackup.isFeatureEnabled) {
+        return;
+    }
+
     [OWSBackupAPI setup];
 
     [[NSNotificationCenter defaultCenter] addObserver:self
@@ -163,24 +179,7 @@ NSError *OWSBackupErrorWithDescription(NSString *description)
     });
 }
 
-- (YapDatabaseConnection *)dbConnection
-{
-    @synchronized(self) {
-        if (!_dbConnection) {
-            _dbConnection = self.primaryStorage.newDatabaseConnection;
-        }
-        return _dbConnection;
-    }
-}
-
 #pragma mark - Dependencies
-
-- (OWSPrimaryStorage *)primaryStorage
-{
-    OWSAssertDebug(SSKEnvironment.shared.primaryStorage);
-
-    return SSKEnvironment.shared.primaryStorage;
-}
 
 - (TSAccountManager *)tsAccountManager
 {
@@ -242,52 +241,46 @@ NSError *OWSBackupErrorWithDescription(NSString *description)
 {
     OWSAssertDebug(value);
 
-    [self.dbConnection setDate:value
-                        forKey:OWSBackup_LastExportSuccessDateKey
-                  inCollection:OWSPrimaryStorage_OWSBackupCollection];
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        [self.keyValueStore setDate:value key:OWSBackup_LastExportSuccessDateKey transaction:transaction];
+    }];
 }
 
 - (nullable NSDate *)lastExportSuccessDate
 {
-    return [self.dbConnection dateForKey:OWSBackup_LastExportSuccessDateKey
-                            inCollection:OWSPrimaryStorage_OWSBackupCollection];
+    return [self.keyValueStore getDate:OWSBackup_LastExportSuccessDateKey];
 }
 
 - (void)setLastExportFailureDate:(NSDate *)value
 {
     OWSAssertDebug(value);
 
-    [self.dbConnection setDate:value
-                        forKey:OWSBackup_LastExportFailureDateKey
-                  inCollection:OWSPrimaryStorage_OWSBackupCollection];
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        [self.keyValueStore setDate:value key:OWSBackup_LastExportFailureDateKey transaction:transaction];
+    }];
 }
 
 
 - (nullable NSDate *)lastExportFailureDate
 {
-    return [self.dbConnection dateForKey:OWSBackup_LastExportFailureDateKey
-                            inCollection:OWSPrimaryStorage_OWSBackupCollection];
+    return [self.keyValueStore getDate:OWSBackup_LastExportFailureDateKey];
 }
 
 - (BOOL)isBackupEnabled
 {
-    return [self.dbConnection boolForKey:OWSBackup_IsBackupEnabledKey
-                            inCollection:OWSPrimaryStorage_OWSBackupCollection
-                            defaultValue:NO];
+    return [self.keyValueStore getBool:OWSBackup_IsBackupEnabledKey defaultValue:NO];
 }
 
 - (void)setIsBackupEnabled:(BOOL)value
 {
-    [self.dbConnection setBool:value
-                        forKey:OWSBackup_IsBackupEnabledKey
-                  inCollection:OWSPrimaryStorage_OWSBackupCollection];
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        [self.keyValueStore setBool:value key:OWSBackup_IsBackupEnabledKey transaction:transaction];
 
-    if (!value) {
-        [self.dbConnection removeObjectForKey:OWSBackup_LastExportSuccessDateKey
-                                 inCollection:OWSPrimaryStorage_OWSBackupCollection];
-        [self.dbConnection removeObjectForKey:OWSBackup_LastExportFailureDateKey
-                                 inCollection:OWSPrimaryStorage_OWSBackupCollection];
-    }
+        if (!value) {
+            [self.keyValueStore removeValueForKey:OWSBackup_LastExportSuccessDateKey transaction:transaction];
+            [self.keyValueStore removeValueForKey:OWSBackup_LastExportFailureDateKey transaction:transaction];
+        }
+    }];
 
     [self postDidChangeNotification];
 
@@ -732,29 +725,24 @@ NSError *OWSBackupErrorWithDescription(NSString *description)
 - (NSArray<NSString *> *)attachmentRecordNamesForLazyRestore
 {
     NSMutableArray<NSString *> *recordNames = [NSMutableArray new];
-    [self.dbConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-        id ext = [transaction ext:TSLazyRestoreAttachmentsDatabaseViewExtensionName];
-        if (!ext) {
-            OWSFailDebug(@"Could not load database view.");
-            return;
-        }
-
-        [ext enumerateKeysAndObjectsInGroup:TSLazyRestoreAttachmentsGroup
-                                 usingBlock:^(
-                                     NSString *collection, NSString *key, id object, NSUInteger index, BOOL *stop) {
-                                     if (![object isKindOfClass:[TSAttachmentPointer class]]) {
-                                         OWSFailDebug(
-                                             @"Unexpected object: %@ in collection:%@", [object class], collection);
-                                         return;
-                                     }
-                                     TSAttachmentPointer *attachmentPointer = object;
-                                     if (!attachmentPointer.lazyRestoreFragment) {
-                                         OWSFailDebug(
-                                             @"Invalid object: %@ in collection:%@", [object class], collection);
-                                         return;
-                                     }
-                                     [recordNames addObject:attachmentPointer.lazyRestoreFragment.recordName];
-                                 }];
+    [self.databaseStorage readWithBlock:^(SDSAnyReadTransaction *transaction) {
+        [AttachmentFinder
+            enumerateAttachmentPointersWithLazyRestoreFragmentsWithTransaction:transaction
+                                                                         block:^(TSAttachmentPointer *attachmentPointer,
+                                                                             BOOL *stop) {
+                                                                             OWSBackupFragment
+                                                                                 *_Nullable lazyRestoreFragment
+                                                                                 = [attachmentPointer
+                                                                                     lazyRestoreFragmentWithTransaction:
+                                                                                         transaction];
+                                                                             if (lazyRestoreFragment == nil) {
+                                                                                 OWSFailDebug(
+                                                                                     @"Missing lazyRestoreFragment.");
+                                                                                 return;
+                                                                             }
+                                                                             [recordNames addObject:lazyRestoreFragment
+                                                                                                        .recordName];
+                                                                         }];
     }];
     return recordNames;
 }
@@ -762,17 +750,15 @@ NSError *OWSBackupErrorWithDescription(NSString *description)
 - (NSArray<NSString *> *)attachmentIdsForLazyRestore
 {
     NSMutableArray<NSString *> *attachmentIds = [NSMutableArray new];
-    [self.dbConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-        id ext = [transaction ext:TSLazyRestoreAttachmentsDatabaseViewExtensionName];
-        if (!ext) {
-            OWSFailDebug(@"Could not load database view.");
-            return;
-        }
-        
-        [ext enumerateKeysInGroup:TSLazyRestoreAttachmentsGroup
-                       usingBlock:^(NSString *collection, NSString *key, NSUInteger index, BOOL *stop) {
-                           [attachmentIds addObject:key];
-                       }];
+    [self.databaseStorage readWithBlock:^(SDSAnyReadTransaction *transaction) {
+        // TODO: We could just enumerate the ids and not deserialize the attachments.
+        [AttachmentFinder
+            enumerateAttachmentPointersWithLazyRestoreFragmentsWithTransaction:transaction
+                                                                         block:^(TSAttachmentPointer *attachmentPointer,
+                                                                             BOOL *stop) {
+                                                                             [attachmentIds
+                                                                                 addObject:attachmentPointer.uniqueId];
+                                                                         }];
     }];
     return attachmentIds;
 }
@@ -782,8 +768,11 @@ NSError *OWSBackupErrorWithDescription(NSString *description)
     OWSAssertDebug(attachment);
     OWSAssertDebug(backupIO);
 
-    OWSBackupFragment *_Nullable lazyRestoreFragment = attachment.lazyRestoreFragment;
-    if (!lazyRestoreFragment) {
+    __block OWSBackupFragment *_Nullable lazyRestoreFragment;
+    [self.databaseStorage readWithBlock:^(SDSAnyReadTransaction *transaction) {
+        lazyRestoreFragment = [attachment lazyRestoreFragmentWithTransaction:transaction];
+    }];
+    if (lazyRestoreFragment == nil) {
         OWSLogError(@"Attachment missing lazy restore metadata.");
         return
             [AnyPromise promiseWithValue:OWSBackupErrorWithDescription(@"Attachment missing lazy restore metadata.")];
@@ -834,7 +823,10 @@ NSError *OWSBackupErrorWithDescription(NSString *description)
         }
     }
 
-    TSAttachmentStream *stream = [[TSAttachmentStream alloc] initWithPointer:attachmentPointer];
+    __block TSAttachmentStream *stream;
+    [self.databaseStorage readWithBlock:^(SDSAnyReadTransaction *transaction) {
+        stream = [[TSAttachmentStream alloc] initWithPointer:attachmentPointer transaction:transaction];
+    }];
 
     NSString *attachmentFilePath = stream.originalFilePath;
     if (attachmentFilePath.length < 1) {
@@ -863,32 +855,44 @@ NSError *OWSBackupErrorWithDescription(NSString *description)
         return [AnyPromise promiseWithValue:error];
     }
 
-    [self.dbConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
         // This should overwrite the attachment pointer with an attachment stream.
-        [stream saveWithTransaction:transaction];
+        //
+        // Since our "any" methods are strict about "insert vs. update", we need to
+        // explicitly remove the existing pointer before inserting the stream.
+        TSAttachment *_Nullable oldValue = [TSAttachment anyFetchWithUniqueId:stream.uniqueId transaction:transaction];
+        if (oldValue != nil) {
+            if ([oldValue isKindOfClass:[TSAttachmentStream class]]) {
+                OWSFailDebug(@"Unexpected stream found.");
+                return;
+            }
+            [oldValue anyRemoveWithTransaction:transaction];
+        }
+        [stream anyInsertWithTransaction:transaction];
     }];
 
     return [AnyPromise promiseWithValue:@(1)];
 }
 
-- (void)logBackupMetadataCache:(YapDatabaseConnection *)dbConnection
+- (void)logBackupMetadataCache
 {
     OWSLogInfo(@"");
 
-    [dbConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-        [transaction enumerateKeysAndObjectsInCollection:[OWSBackupFragment collection]
-                                              usingBlock:^(NSString *key, OWSBackupFragment *fragment, BOOL *stop) {
-                                                  OWSLogVerbose(@"fragment: %@, %@, %lu, %@, %@, %@, %@",
-                                                      key,
-                                                      fragment.recordName,
-                                                      (unsigned long)fragment.encryptionKey.length,
-                                                      fragment.relativeFilePath,
-                                                      fragment.attachmentId,
-                                                      fragment.downloadFilePath,
-                                                      fragment.uncompressedDataLength);
-                                              }];
-        OWSLogVerbose(@"Number of fragments: %lu",
-            (unsigned long)[transaction numberOfKeysInCollection:[OWSBackupFragment collection]]);
+    [self.databaseStorage readWithBlock:^(SDSAnyReadTransaction *transaction) {
+        [OWSBackupFragment anyEnumerateWithTransaction:transaction
+                                               batched:YES
+                                                 block:^(OWSBackupFragment *fragment, BOOL *stop) {
+                                                     OWSLogVerbose(@"fragment: %@, %@, %lu, %@, %@, %@, %@",
+                                                         fragment.uniqueId,
+                                                         fragment.recordName,
+                                                         (unsigned long)fragment.encryptionKey.length,
+                                                         fragment.relativeFilePath,
+                                                         fragment.attachmentId,
+                                                         fragment.downloadFilePath,
+                                                         fragment.uncompressedDataLength);
+                                                 }];
+        OWSLogVerbose(
+            @"Number of fragments: %lu", (unsigned long)[OWSBackupFragment anyCountWithTransaction:transaction]);
     }];
 }
 

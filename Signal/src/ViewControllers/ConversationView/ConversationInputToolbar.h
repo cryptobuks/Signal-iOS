@@ -2,18 +2,25 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
+#import <SignalMessaging/BlockListUIUtils.h>
+
 NS_ASSUME_NONNULL_BEGIN
 
 @class ConversationStyle;
 @class OWSLinkPreviewDraft;
 @class OWSQuotedReplyModel;
+@class PHAsset;
+@class PhotoCapture;
 @class SignalAttachment;
+@class StickerInfo;
 
 @protocol ConversationInputToolbarDelegate <NSObject>
 
 - (void)sendButtonPressed;
 
-- (void)attachmentButtonPressed;
+- (void)sendSticker:(StickerInfo *)stickerInfo;
+
+- (void)presentManageStickersView;
 
 #pragma mark - Voice Memo
 
@@ -26,6 +33,28 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)voiceMemoGestureDidCancel;
 
 - (void)voiceMemoGestureDidUpdateCancelWithRatioComplete:(CGFloat)cancelAlpha;
+
+#pragma mark - Attachments
+
+- (void)cameraButtonPressed;
+
+- (void)cameraButtonPressedWithPhotoCapture:(nullable PhotoCapture *)photoCapture;
+
+- (void)galleryButtonPressed;
+
+- (void)gifButtonPressed;
+
+- (void)fileButtonPressed;
+
+- (void)contactButtonPressed;
+
+- (void)locationButtonPressed;
+
+- (void)didSelectRecentPhotoWithAsset:(PHAsset *)asset attachment:(SignalAttachment *)attachment;
+
+- (void)showUnblockConversationUI:(nullable BlockActionCompletionBlock)completionBlock;
+
+- (BOOL)isBlockedConversation;
 
 @end
 
@@ -43,21 +72,27 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, weak) id<ConversationInputToolbarDelegate> inputToolbarDelegate;
 
-- (void)beginEditingTextMessage;
-- (void)endEditingTextMessage;
-- (BOOL)isInputTextViewFirstResponder;
+- (void)beginEditingMessage;
+- (void)endEditingMessage;
+- (BOOL)isInputViewFirstResponder;
 
 - (void)setInputTextViewDelegate:(id<ConversationInputTextViewDelegate>)value;
 
 - (NSString *)messageText;
 - (void)setMessageText:(NSString *_Nullable)value animated:(BOOL)isAnimated;
+- (void)acceptAutocorrectSuggestion;
 - (void)clearTextMessageAnimated:(BOOL)isAnimated;
+- (void)clearDesiredKeyboard;
 - (void)toggleDefaultKeyboard;
 
 - (void)updateFontSizes;
 
 - (void)updateLayoutWithSafeAreaInsets:(UIEdgeInsets)safeAreaInsets;
 - (void)ensureTextViewHeight;
+
+- (void)viewDidAppear;
+
+- (void)ensureFirstResponderState;
 
 #pragma mark - Voice Memo
 

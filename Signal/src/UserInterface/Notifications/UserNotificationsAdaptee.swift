@@ -63,7 +63,7 @@ class UserNotificationConfig {
 }
 
 @available(iOS 10.0, *)
-class UserNotificationPresenterAdaptee: NSObject, UNUserNotificationCenterDelegate {
+class UserNotificationPresenterAdaptee: NSObject {
 
     private let notificationCenter: UNUserNotificationCenter
     private var notifications: [String: UNNotificationRequest] = [:]
@@ -71,7 +71,6 @@ class UserNotificationPresenterAdaptee: NSObject, UNUserNotificationCenterDelega
     override init() {
         self.notificationCenter = UNUserNotificationCenter.current()
         super.init()
-        notificationCenter.delegate = self
         SwiftSingletons.register(self)
     }
 }
@@ -101,19 +100,21 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         }
     }
 
-    func notify(category: AppNotificationCategory, title: String?, body: String, userInfo: [AnyHashable: Any], sound: OWSSound?) {
+    func notify(category: AppNotificationCategory, title: String?, body: String, threadIdentifier: String?, userInfo: [AnyHashable: Any], sound: OWSSound?) {
         AssertIsOnMainThread()
-        notify(category: category, title: title, body: body, userInfo: userInfo, sound: sound, replacingIdentifier: nil)
+        notify(category: category, title: title, body: body, threadIdentifier: threadIdentifier, userInfo: userInfo, sound: sound, replacingIdentifier: nil)
     }
 
-    func notify(category: AppNotificationCategory, title: String?, body: String, userInfo: [AnyHashable: Any], sound: OWSSound?, replacingIdentifier: String?) {
+    func notify(category: AppNotificationCategory, title: String?, body: String, threadIdentifier: String?, userInfo: [AnyHashable: Any], sound: OWSSound?, replacingIdentifier: String?) {
         AssertIsOnMainThread()
 
         let content = UNMutableNotificationContent()
         content.categoryIdentifier = category.identifier
         content.userInfo = userInfo
         let isAppActive = UIApplication.shared.applicationState == .active
-        content.sound = sound?.notificationSound(isQuiet: isAppActive)
+        if let sound = sound, sound != OWSSound.none {
+            content.sound = sound.notificationSound(isQuiet: isAppActive)
+        }
 
         var notificationIdentifier: String = UUID().uuidString
         if let replacingIdentifier = replacingIdentifier {
@@ -141,6 +142,10 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
         } else {
             // Play sound and vibrate, but without a `body` no banner will show.
             Logger.debug("supressing notification body")
+        }
+
+        if let threadIdentifier = threadIdentifier {
+            content.threadIdentifier = threadIdentifier
         }
 
         let request = UNNotificationRequest(identifier: notificationIdentifier, content: content, trigger: trigger)
@@ -179,8 +184,13 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
 
     func clearAllNotifications() {
         AssertIsOnMainThread()
+
         notificationCenter.removeAllPendingNotificationRequests()
         notificationCenter.removeAllDeliveredNotifications()
+
+        if !FeatureFlags.onlyModernNotificationClearance {
+            LegacyNotificationPresenterAdaptee.clearExistingNotifications()
+        }
     }
 
     func shouldPresentNotification(category: AppNotificationCategory, userInfo: [AnyHashable: Any]) -> Bool {
@@ -189,7 +199,7 @@ extension UserNotificationPresenterAdaptee: NotificationPresenterAdaptee {
             return true
         }
 
-        guard category == .incomingMessage || category == .errorMessage else {
+        guard category == .incomingMessage || category == .infoOrErrorMessage else {
             return true
         }
 
@@ -278,8 +288,8 @@ extension OWSSound {
     func notificationSound(isQuiet: Bool) -> UNNotificationSound {
         guard let filename = OWSSounds.filename(for: self, quiet: isQuiet) else {
             owsFailDebug("filename was unexpectedly nil")
-            return UNNotificationSound.default()
+            return UNNotificationSound.default
         }
-        return UNNotificationSound(named: filename)
+        return UNNotificationSound(named: UNNotificationSoundName(rawValue: filename))
     }
 }

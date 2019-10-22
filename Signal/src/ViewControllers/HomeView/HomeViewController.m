@@ -6,7 +6,6 @@
 #import "AppDelegate.h"
 #import "AppSettingsViewController.h"
 #import "HomeViewCell.h"
-#import "NewContactThreadViewController.h"
 #import "OWSNavigationController.h"
 #import "OWSPrimaryStorage.h"
 #import "ProfileViewController.h"
@@ -14,7 +13,6 @@
 #import "Signal-Swift.h"
 #import "SignalApp.h"
 #import "TSAccountManager.h"
-#import "TSDatabaseView.h"
 #import "TSGroupThread.h"
 #import "ViewControllerUtils.h"
 #import <PromiseKit/AnyPromise.h>
@@ -24,17 +22,20 @@
 #import <SignalMessaging/OWSContactsManager.h>
 #import <SignalMessaging/OWSFormat.h>
 #import <SignalMessaging/SignalMessaging-Swift.h>
+#import <SignalMessaging/Theme.h>
 #import <SignalMessaging/UIUtil.h>
 #import <SignalServiceKit/OWSMessageSender.h>
 #import <SignalServiceKit/OWSMessageUtils.h>
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 #import <SignalServiceKit/TSAccountManager.h>
 #import <SignalServiceKit/TSOutgoingMessage.h>
 #import <StoreKit/StoreKit.h>
-#import <YapDatabase/YapDatabase.h>
 #import <YapDatabase/YapDatabaseViewChange.h>
 #import <YapDatabase/YapDatabaseViewConnection.h>
 
 NS_ASSUME_NONNULL_BEGIN
+
+NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversationsReuseIdentifier";
 
 typedef NS_ENUM(NSInteger, HomeViewMode) {
     HomeViewMode_Archive,
@@ -52,27 +53,22 @@ typedef NS_ENUM(NSInteger, HomeViewMode) {
 NSString *const kReminderViewPseudoGroup = @"kReminderViewPseudoGroup";
 NSString *const kArchiveButtonPseudoGroup = @"kArchiveButtonPseudoGroup";
 
-typedef NS_ENUM(NSInteger, HomeViewControllerSection) {
-    HomeViewControllerSectionReminders,
-    HomeViewControllerSectionConversations,
-    HomeViewControllerSectionArchiveButton,
-};
-
-NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversationsReuseIdentifier";
-
 @interface HomeViewController () <UITableViewDelegate,
     UITableViewDataSource,
     UIViewControllerPreviewingDelegate,
     UISearchBarDelegate,
     ConversationSearchViewDelegate,
-    OWSBlockListCacheDelegate>
+    HomeViewDatabaseSnapshotDelegate,
+    OWSBlockListCacheDelegate,
+    CameraFirstCaptureDelegate>
 
 @property (nonatomic) UITableView *tableView;
-@property (nonatomic) UILabel *emptyBoxLabel;
+@property (nonatomic) UIView *emptyInboxView;
 
-@property (nonatomic) YapDatabaseConnection *editingDbConnection;
-@property (nonatomic) YapDatabaseConnection *uiDatabaseConnection;
-@property (nonatomic) YapDatabaseViewMappings *threadMappings;
+@property (nonatomic) UIView *firstConversationCueView;
+@property (nonatomic) UILabel *firstConversationLabel;
+
+@property (nonatomic, readonly) ThreadMapping *threadMapping;
 @property (nonatomic) HomeViewMode homeViewMode;
 @property (nonatomic) id previewingContext;
 @property (nonatomic, readonly) NSCache<NSString *, ThreadViewModel *> *threadViewModelCache;
@@ -85,17 +81,15 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 @property (nonatomic, readonly) UISearchBar *searchBar;
 @property (nonatomic) ConversationSearchViewController *searchResultsController;
 
-// Dependencies
-
-@property (nonatomic, readonly) AccountManager *accountManager;
 @property (nonatomic, readonly) OWSContactsManager *contactsManager;
-@property (nonatomic, readonly) OWSMessageSender *messageSender;
 @property (nonatomic, readonly) OWSBlockListCache *blocklistCache;
 
 // Views
 
 @property (nonatomic, readonly) UIStackView *reminderStackView;
 @property (nonatomic, readonly) UITableViewCell *reminderViewCell;
+@property (nonatomic, readonly) ExpirationNagView *expiredView;
+@property (nonatomic, readonly) UIView *endOfLifeOSView;
 @property (nonatomic, readonly) UIView *deregisteredView;
 @property (nonatomic, readonly) UIView *outageView;
 @property (nonatomic, readonly) UIView *archiveReminderView;
@@ -145,19 +139,31 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
 - (void)commonInit
 {
-    _accountManager = AppEnvironment.shared.accountManager;
-    _contactsManager = Environment.shared.contactsManager;
-    _messageSender = SSKEnvironment.shared.messageSender;
     _blocklistCache = [OWSBlockListCache new];
     [_blocklistCache startObservingAndSyncStateWithDelegate:self];
     _threadViewModelCache = [NSCache new];
-
-    // Ensure ExperienceUpgradeFinder has been initialized.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-result"
-    [ExperienceUpgradeFinder sharedManager];
-#pragma GCC diagnostic pop
+    _threadMapping = [ThreadMapping new];
 }
+
+#pragma mark - Dependencies
+
+- (OWSContactsManager *)contactsManager
+{
+    return Environment.shared.contactsManager;
+}
+
+- (SDSDatabaseStorage *)databaseStorage
+{
+    return SDSDatabaseStorage.shared;
+}
+
+// POST GRDB TODO - Remove
+- (nullable OWSPrimaryStorage *)primaryStorage
+{
+    return SSKEnvironment.shared.primaryStorage;
+}
+
+#pragma mark -
 
 - (void)observeNotifications
 {
@@ -177,14 +183,22 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
                                              selector:@selector(applicationWillResignActive:)
                                                  name:OWSApplicationWillResignActiveNotification
                                                object:nil];
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(yapDatabaseModified:)
-                                                 name:YapDatabaseModifiedNotification
-                                               object:OWSPrimaryStorage.sharedManager.dbNotificationObject];
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(yapDatabaseModifiedExternally:)
-                                                 name:YapDatabaseModifiedExternallyNotification
-                                               object:nil];
+    if (SSKFeatureFlags.storageMode != StorageModeYdb) {
+        [self.databaseStorage.grdbStorage.homeViewDatabaseObserver appendSnapshotDelegate:self];
+    } else {
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(uiDatabaseDidUpdateExternally:)
+                                                     name:OWSUIDatabaseConnectionDidUpdateExternallyNotification
+                                                   object:self.primaryStorage.dbNotificationObject];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(uiDatabaseWillUpdate:)
+                                                     name:OWSUIDatabaseConnectionWillUpdateNotification
+                                                   object:self.primaryStorage.dbNotificationObject];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(uiDatabaseDidUpdate:)
+                                                     name:OWSUIDatabaseConnectionDidUpdateNotification
+                                                   object:self.primaryStorage.dbNotificationObject];
+    }
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(registrationStateDidChange:)
                                                  name:RegistrationStateDidChangeNotification
@@ -215,6 +229,10 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     OWSAssertIsOnMainThread();
 
     [self reloadTableViewData];
+
+    if (!self.firstConversationCueView.isHidden) {
+        [self updateFirstConversationLabel];
+    }
 }
 
 - (void)registrationStateDidChange:(id)notification
@@ -279,6 +297,8 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     self.reminderViewCell.selectionStyle = UITableViewCellSelectionStyleNone;
     [self.reminderViewCell.contentView addSubview:reminderStackView];
     [reminderStackView autoPinEdgesToSuperviewEdges];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, _reminderViewCell);
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, reminderStackView);
 
     __weak HomeViewController *weakSelf = self;
     ReminderView *deregisteredView =
@@ -293,18 +313,34 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
                         }];
     _deregisteredView = deregisteredView;
     [reminderStackView addArrangedSubview:deregisteredView];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, deregisteredView);
+
+    ReminderView *endOfLifeOSView =
+        [ReminderView nagWithText:NSLocalizedString(@"END_OF_LIFE_OS_WARNING",
+                                      @"Label indicating that this OS version is no longer supported.")
+                        tapAction:nil];
+    _endOfLifeOSView = endOfLifeOSView;
+    [reminderStackView addArrangedSubview:endOfLifeOSView];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, endOfLifeOSView);
+
+    ExpirationNagView *expiredView = [ExpirationNagView new];
+    _expiredView = expiredView;
+    [reminderStackView addArrangedSubview:expiredView];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, expiredView);
 
     ReminderView *outageView = [ReminderView
         nagWithText:NSLocalizedString(@"OUTAGE_WARNING", @"Label warning the user that the Signal service may be down.")
           tapAction:nil];
     _outageView = outageView;
     [reminderStackView addArrangedSubview:outageView];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, outageView);
 
     ReminderView *archiveReminderView =
         [ReminderView explanationWithText:NSLocalizedString(@"INBOX_VIEW_ARCHIVE_MODE_REMINDER",
                                               @"Label reminding the user that they are in archive mode.")];
     _archiveReminderView = archiveReminderView;
     [reminderStackView addArrangedSubview:archiveReminderView];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, archiveReminderView);
 
     ReminderView *missingContactsPermissionView = [ReminderView
         nagWithText:NSLocalizedString(@"INBOX_VIEW_MISSING_CONTACTS_PERMISSION",
@@ -314,6 +350,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
           }];
     _missingContactsPermissionView = missingContactsPermissionView;
     [reminderStackView addArrangedSubview:missingContactsPermissionView];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, missingContactsPermissionView);
 
     self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     self.tableView.delegate = self;
@@ -324,21 +361,32 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:kArchivedConversationsReuseIdentifier];
     [self.view addSubview:self.tableView];
     [self.tableView autoPinEdgesToSuperviewEdges];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, _tableView);
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, _searchBar);
 
     self.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 60;
 
-    UILabel *emptyBoxLabel = [UILabel new];
-    self.emptyBoxLabel = emptyBoxLabel;
-    [self.view addSubview:emptyBoxLabel];
+    self.emptyInboxView = [self createEmptyInboxView];
+    [self.view addSubview:self.emptyInboxView];
+    [self.emptyInboxView autoPinWidthToSuperviewMargins];
+    [self.emptyInboxView autoVCenterInSuperview];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, _emptyInboxView);
 
-    //  Let the label use as many lines as needed. It will very rarely be more than 2 but may happen for verbose locs.
-    [emptyBoxLabel setNumberOfLines:0];
-    emptyBoxLabel.lineBreakMode = NSLineBreakByWordWrapping;
-
-    [emptyBoxLabel autoPinLeadingToSuperviewMargin];
-    [emptyBoxLabel autoPinTrailingToSuperviewMargin];
-    [emptyBoxLabel autoAlignAxisToSuperviewAxis:ALAxisHorizontal];
+    [self createFirstConversationCueView];
+    [self.view addSubview:self.firstConversationCueView];
+    [self.firstConversationCueView autoPinToTopLayoutGuideOfViewController:self withInset:0.f];
+    // This inset bakes in assumptions about UINavigationBar layout, but I'm not sure
+    // there's a better way to do it, since it isn't safe to use iOS auto layout with
+    // UINavigationBar contents.
+    [self.firstConversationCueView autoPinEdgeToSuperviewEdge:ALEdgeTrailing withInset:6.f];
+    [self.firstConversationCueView autoPinEdgeToSuperviewEdge:ALEdgeLeading
+                                                    withInset:10
+                                                     relation:NSLayoutRelationGreaterThanOrEqual];
+    [self.firstConversationCueView autoPinEdgeToSuperviewMargin:ALEdgeBottom
+                                                       relation:NSLayoutRelationGreaterThanOrEqual];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, _firstConversationCueView);
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, _firstConversationLabel);
 
     UIRefreshControl *pullToRefreshView = [UIRefreshControl new];
     pullToRefreshView.tintColor = [UIColor grayColor];
@@ -346,6 +394,205 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
                           action:@selector(pullToRefreshPerformed:)
                 forControlEvents:UIControlEventValueChanged];
     [self.tableView insertSubview:pullToRefreshView atIndex:0];
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, pullToRefreshView);
+}
+
+- (UIView *)createEmptyInboxView
+{
+    NSArray<NSString *> *emptyInboxImageNames = @[
+                                                  @"home_empty_splash_1",
+                                                  @"home_empty_splash_2",
+                                                  @"home_empty_splash_3",
+                                                  @"home_empty_splash_4",
+                                                  @"home_empty_splash_5",
+                                                  ];
+    NSString *emptyInboxImageName = emptyInboxImageNames[arc4random_uniform((uint32_t) emptyInboxImageNames.count)];
+    UIImageView *emptyInboxImageView = [UIImageView new];
+    emptyInboxImageView.image = [UIImage imageNamed:emptyInboxImageName];
+    emptyInboxImageView.layer.minificationFilter = kCAFilterTrilinear;
+    emptyInboxImageView.layer.magnificationFilter = kCAFilterTrilinear;
+    [emptyInboxImageView autoPinToAspectRatioWithSize:emptyInboxImageView.image.size];
+    CGSize screenSize = UIScreen.mainScreen.bounds.size;
+    CGFloat emptyInboxImageSize = MIN(screenSize.width, screenSize.height) * 0.65f;
+    [emptyInboxImageView autoSetDimension:ALDimensionWidth toSize:emptyInboxImageSize];
+
+    UILabel *emptyInboxLabel = [UILabel new];
+    emptyInboxLabel.text = NSLocalizedString(@"INBOX_VIEW_EMPTY_INBOX",
+                                             @"Message shown in the home view when the inbox is empty.");
+    emptyInboxLabel.font = UIFont.ows_dynamicTypeBodyClampedFont;
+    emptyInboxLabel.textColor = Theme.secondaryColor;
+    emptyInboxLabel.textAlignment = NSTextAlignmentCenter;
+    emptyInboxLabel.numberOfLines = 0;
+    emptyInboxLabel.lineBreakMode = NSLineBreakByWordWrapping;
+    
+    UIStackView *emptyInboxStack = [[UIStackView alloc] initWithArrangedSubviews:@[
+                                                                                   emptyInboxImageView,
+                                                                                   emptyInboxLabel,
+                                                                                   ]];
+    emptyInboxStack.axis = UILayoutConstraintAxisVertical;
+    emptyInboxStack.alignment = UIStackViewAlignmentCenter;
+    emptyInboxStack.spacing = 12;
+    emptyInboxStack.layoutMargins = UIEdgeInsetsMake(50, 50, 50, 50);
+    emptyInboxStack.layoutMarginsRelativeArrangement = YES;
+    return emptyInboxStack;
+}
+
+- (void)createFirstConversationCueView
+{
+    const CGFloat kTailWidth = 16.f;
+    const CGFloat kTailHeight = 8.f;
+    const CGFloat kTailHMargin = 12.f;
+
+    UILabel *label = [UILabel new];
+    label.textColor = UIColor.ows_whiteColor;
+    label.font = UIFont.ows_dynamicTypeBodyClampedFont;
+    label.numberOfLines = 0;
+    label.lineBreakMode = NSLineBreakByWordWrapping;
+
+    OWSLayerView *layerView = [OWSLayerView new];
+    layerView.layoutMargins = UIEdgeInsetsMake(11 + kTailHeight, 16, 11, 16);
+    CAShapeLayer *shapeLayer = [CAShapeLayer new];
+    shapeLayer.fillColor = UIColor.ows_signalBlueColor.CGColor;
+    [layerView.layer addSublayer:shapeLayer];
+    layerView.layoutCallback = ^(UIView *view) {
+        UIBezierPath *bezierPath = [UIBezierPath new];
+
+        // Bubble
+        CGRect bubbleBounds = view.bounds;
+        bubbleBounds.origin.y += kTailHeight;
+        bubbleBounds.size.height -= kTailHeight;
+        [bezierPath appendPath:[UIBezierPath bezierPathWithRoundedRect:bubbleBounds cornerRadius:8]];
+
+        // Tail
+        CGPoint tailTop = CGPointMake(kTailHMargin + kTailWidth * 0.5f, 0.f);
+        CGPoint tailLeft = CGPointMake(kTailHMargin, kTailHeight);
+        CGPoint tailRight = CGPointMake(kTailHMargin + kTailWidth, kTailHeight);
+        if (!CurrentAppContext().isRTL) {
+            tailTop.x = view.width - tailTop.x;
+            tailLeft.x = view.width - tailLeft.x;
+            tailRight.x = view.width - tailRight.x;
+        }
+        [bezierPath moveToPoint:tailTop];
+        [bezierPath addLineToPoint:tailLeft];
+        [bezierPath addLineToPoint:tailRight];
+        [bezierPath addLineToPoint:tailTop];
+        shapeLayer.path = bezierPath.CGPath;
+        shapeLayer.frame = view.bounds;
+    };
+
+    [layerView addSubview:label];
+    [label autoPinEdgesToSuperviewMargins];
+
+    layerView.userInteractionEnabled = YES;
+    [layerView
+        addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self
+                                                                     action:@selector(firstConversationCueWasTapped:)]];
+
+    self.firstConversationCueView = layerView;
+    self.firstConversationLabel = label;
+}
+
+- (void)firstConversationCueWasTapped:(UITapGestureRecognizer *)gestureRecognizer
+{
+    OWSLogInfo(@"");
+
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        [AppPreferences setHasDimissedFirstConversationCue:YES transaction:transaction];
+    }];
+
+    [self updateViewState];
+}
+
+- (NSArray<SignalAccount *> *)suggestedAccountsForFirstContact
+{
+    NSMutableArray<SignalAccount *> *accounts = [NSMutableArray new];
+
+    for (SignalAccount *account in self.contactsManager.signalAccounts) {
+        if (account.recipientAddress.isLocalAddress) {
+            continue;
+        }
+        if (accounts.count >= 3) {
+            break;
+        }
+        [accounts addObject:account];
+    }
+
+    return [accounts copy];
+}
+
+- (void)updateFirstConversationLabel
+{
+
+    NSArray<SignalAccount *> *signalAccounts = self.suggestedAccountsForFirstContact;
+
+    NSString *formatString = @"";
+    NSMutableArray<NSString *> *contactNames = [NSMutableArray new];
+    if (signalAccounts.count >= 3) {
+        [contactNames addObject:[self.contactsManager displayNameForSignalAccount:signalAccounts[0]]];
+        [contactNames addObject:[self.contactsManager displayNameForSignalAccount:signalAccounts[1]]];
+        [contactNames addObject:[self.contactsManager displayNameForSignalAccount:signalAccounts[2]]];
+
+        formatString = NSLocalizedString(@"HOME_VIEW_FIRST_CONVERSATION_OFFER_3_CONTACTS_FORMAT",
+            @"Format string for a label offering to start a new conversation with your contacts, if you have at least "
+            @"3 Signal contacts.  Embeds {{The names of 3 of your Signal contacts}}.");
+    } else if (signalAccounts.count == 2) {
+        [contactNames addObject:[self.contactsManager displayNameForSignalAccount:signalAccounts[0]]];
+        [contactNames addObject:[self.contactsManager displayNameForSignalAccount:signalAccounts[1]]];
+
+        formatString = NSLocalizedString(@"HOME_VIEW_FIRST_CONVERSATION_OFFER_2_CONTACTS_FORMAT",
+            @"Format string for a label offering to start a new conversation with your contacts, if you have 2 Signal "
+            @"contacts.  Embeds {{The names of 2 of your Signal contacts}}.");
+    } else if (signalAccounts.count == 1) {
+        [contactNames addObject:[self.contactsManager displayNameForSignalAccount:signalAccounts[0]]];
+
+        formatString = NSLocalizedString(@"HOME_VIEW_FIRST_CONVERSATION_OFFER_1_CONTACT_FORMAT",
+            @"Format string for a label offering to start a new conversation with your contacts, if you have 1 Signal "
+            @"contact.  Embeds {{The name of 1 of your Signal contacts}}.");
+    }
+
+    NSString *embedToken = @"%@";
+    NSArray<NSString *> *formatSplits = [formatString componentsSeparatedByString:embedToken];
+    // We need to use a complicated format string that possibly embeds multiple contact names.
+    // Translator error could easily lead to an invalid format string.
+    // We need to verify that it was translated properly.
+    BOOL isValidFormatString = (contactNames.count > 0 && formatSplits.count == contactNames.count + 1);
+    for (NSString *contactName in contactNames) {
+        if ([contactName containsString:embedToken]) {
+            isValidFormatString = NO;
+        }
+    }
+
+    NSMutableAttributedString *_Nullable attributedString = nil;
+    if (isValidFormatString) {
+        attributedString = [[NSMutableAttributedString alloc] initWithString:formatString];
+        while (contactNames.count > 0) {
+            NSString *contactName = contactNames.firstObject;
+            [contactNames removeObjectAtIndex:0];
+
+            NSRange range = [attributedString.string rangeOfString:embedToken];
+            if (range.location == NSNotFound) {
+                // Error
+                attributedString = nil;
+                break;
+            }
+
+            NSAttributedString *formattedName = [[NSAttributedString alloc]
+                initWithString:contactName
+                    attributes:@{
+                        NSFontAttributeName : self.firstConversationLabel.font.ows_mediumWeight,
+                    }];
+            [attributedString replaceCharactersInRange:range withAttributedString:formattedName];
+        }
+    }
+
+    if (!attributedString) {
+        // The default case handles the no-contacts scenario and all error cases.
+        NSString *defaultText = NSLocalizedString(@"HOME_VIEW_FIRST_CONVERSATION_OFFER_NO_CONTACTS",
+            @"A label offering to start a new conversation with your contacts, if you have no Signal contacts.");
+        attributedString = [[NSMutableAttributedString alloc] initWithString:defaultText];
+    }
+
+    self.firstConversationLabel.attributedText = [attributedString copy];
 }
 
 - (void)updateReminderViews
@@ -356,9 +603,14 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     self.missingContactsPermissionView.hidden = !self.contactsManager.isSystemContactsDenied;
     self.deregisteredView.hidden = !TSAccountManager.sharedInstance.isDeregistered;
     self.outageView.hidden = !OutageDetection.sharedManager.hasOutage;
+    self.endOfLifeOSView.hidden = !SSKAppExpiry.isEndOfLifeOSVersion;
+
+    self.expiredView.hidden = !SSKAppExpiry.isExpiringSoon;
+    [self.expiredView updateText];
 
     self.hasVisibleReminders = !self.archiveReminderView.isHidden || !self.missingContactsPermissionView.isHidden
-        || !self.deregisteredView.isHidden || !self.outageView.isHidden;
+        || !self.deregisteredView.isHidden || !self.outageView.isHidden || !self.expiredView.isHidden
+        || !self.endOfLifeOSView.isHidden;
 }
 
 - (void)setHasVisibleReminders:(BOOL)hasVisibleReminders
@@ -375,18 +627,8 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 {
     [super viewDidLoad];
 
-    self.editingDbConnection = OWSPrimaryStorage.sharedManager.newDatabaseConnection;
-    
-    // Create the database connection.
-    [self uiDatabaseConnection];
-
-    [self updateMappings];
-    [self checkIfEmptyView];
-    [self updateReminderViews];
     [self observeNotifications];
-
-    // because this uses the table data source, `tableViewSetup` must happen
-    // after mappings have been set up in `showInboxGrouping`
+    [self resetMappings];
     [self tableViewSetUp];
 
     switch (self.homeViewMode) {
@@ -413,6 +655,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     searchBar.placeholder = NSLocalizedString(@"HOME_VIEW_CONVERSATION_SEARCHBAR_PLACEHOLDER",
         @"Placeholder text for search bar which filters conversations.");
     searchBar.delegate = self;
+    searchBar.textField.accessibilityIdentifier = ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"conversation_search");
     [searchBar sizeToFit];
 
     // Setting tableHeader calls numberOfSections, which must happen after updateMappings has been called at least once.
@@ -427,8 +670,8 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     [self addChildViewController:searchResultsController];
     [self.view addSubview:searchResultsController.view];
     [searchResultsController.view autoPinEdgeToSuperviewEdge:ALEdgeBottom];
-    [searchResultsController.view autoPinEdgeToSuperviewSafeArea:ALEdgeLeading];
-    [searchResultsController.view autoPinEdgeToSuperviewSafeArea:ALEdgeTrailing];
+    [searchResultsController.view autoPinEdgeToSuperviewEdge:ALEdgeLeading];
+    [searchResultsController.view autoPinEdgeToSuperviewEdge:ALEdgeTrailing];
     if (@available(iOS 11, *)) {
         [searchResultsController.view autoPinTopToSuperviewMarginWithInset:56];
     } else {
@@ -453,16 +696,21 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     NSString *paddingString = [@"" stringByPaddingToLength:paddingLength withString:@" " startingAtIndex:0];
 
     self.navigationItem.backBarButtonItem =
-        [[UIBarButtonItem alloc] initWithTitle:paddingString style:UIBarButtonItemStylePlain target:nil action:nil];
+        [[UIBarButtonItem alloc] initWithTitle:paddingString
+                                         style:UIBarButtonItemStylePlain
+                                        target:nil
+                                        action:nil
+                       accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"back")];
 }
 
 - (void)applyArchiveBackButton
 {
     self.navigationItem.backBarButtonItem =
-        [[UIBarButtonItem alloc] initWithTitle:NSLocalizedString(@"BACK_BUTTON", @"button text for back button")
+        [[UIBarButtonItem alloc] initWithTitle:CommonStrings.backButton
                                          style:UIBarButtonItemStylePlain
                                         target:nil
-                                        action:nil];
+                                        action:nil
+                       accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"back")];
 }
 
 - (void)viewDidAppear:(BOOL)animated
@@ -522,15 +770,30 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
         settingsButton = [[UIBarButtonItem alloc] initWithImage:image
                                                           style:UIBarButtonItemStylePlain
                                                          target:self
-                                                         action:@selector(settingsButtonPressed:)];
+                                                         action:@selector(settingsButtonPressed:)
+                                        accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"settings")];
     }
     settingsButton.accessibilityLabel = CommonStrings.openSettingsButton;
     self.navigationItem.leftBarButtonItem = settingsButton;
+    SET_SUBVIEW_ACCESSIBILITY_IDENTIFIER(self, settingsButton);
 
-    self.navigationItem.rightBarButtonItem =
-        [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCompose
-                                                      target:self
-                                                      action:@selector(showNewConversationView)];
+    UIBarButtonItem *compose = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"compose-24"]
+                                                                style:UIBarButtonItemStylePlain
+                                                               target:self
+                                                               action:@selector(showNewConversationView)];
+    compose.accessibilityIdentifier = ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"compose");
+
+    if (SSKFeatureFlags.cameraFirstCaptureFlow) {
+        UIBarButtonItem *camera = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"camera-outline-24"]
+                                                                   style:UIBarButtonItemStylePlain
+                                                                  target:self
+                                                                  action:@selector(showCameraView)];
+        camera.accessibilityIdentifier = ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"camera");
+
+        self.navigationItem.rightBarButtonItems = @[ compose, camera ];
+    } else {
+        self.navigationItem.rightBarButtonItems = @[ compose ];
+    }
 }
 
 - (void)settingsButtonPressed:(id)sender
@@ -578,7 +841,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
     OWSLogInfo(@"");
 
-    NewContactThreadViewController *viewController = [NewContactThreadViewController new];
+    ComposeViewController *viewController = [ComposeViewController new];
 
     [self.contactsManager requestSystemContactsOnceWithCompletion:^(NSError *_Nullable error) {
         if (error) {
@@ -594,42 +857,47 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     }];
 }
 
+- (void)showCameraView
+{
+    [self ows_askForCameraPermissions:^(BOOL cameraGranted) {
+        if (!cameraGranted) {
+            OWSLogWarn(@"camera permission denied.");
+            return;
+        }
+        [self ows_askForMicrophonePermissions:^(BOOL micGranted) {
+            if (!micGranted) {
+                OWSLogWarn(@"proceeding, though mic permission denied.");
+                // We can still continue without mic permissions, but any captured video will
+                // be silent.
+            }
+
+            CaptureFirstCaptureNavigationController *cameraModal =
+                [CaptureFirstCaptureNavigationController captureFirstCameraModal];
+            cameraModal.cameraFirstCaptureSendFlow.delegate = self;
+
+            [self presentFullScreenViewController:cameraModal animated:YES completion:nil];
+        }];
+    }];
+}
+
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-
-    __block BOOL hasAnyMessages;
-    [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction * _Nonnull transaction) {
-        hasAnyMessages = [self hasAnyMessagesWithTransaction:transaction];
-    }];
-    if (hasAnyMessages) {
-        [self.contactsManager requestSystemContactsOnceWithCompletion:^(NSError *_Nullable error) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [self updateReminderViews];
-            });
-        }];
-    }
-
     self.isViewVisible = YES;
 
     BOOL isShowingSearchResults = !self.searchResultsController.view.hidden;
     if (isShowingSearchResults) {
         OWSAssertDebug(self.searchBar.text.ows_stripped.length > 0);
         [self scrollSearchBarToTopAnimated:NO];
+        [self.searchBar becomeFirstResponder];
     } else if (self.lastThread) {
         OWSAssertDebug(self.searchBar.text.ows_stripped.length == 0);
-        
+
         // When returning to home view, try to ensure that the "last" thread is still
         // visible.  The threads often change ordering while in conversation view due
         // to incoming & outgoing messages.
-        __block NSIndexPath *indexPathOfLastThread = nil;
-        [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-            indexPathOfLastThread =
-            [[transaction extension:TSThreadDatabaseViewExtensionName] indexPathForKey:self.lastThread.uniqueId
-                                                                          inCollection:[TSThread collection]
-                                                                          withMappings:self.threadMappings];
-        }];
-        
+        NSIndexPath *_Nullable indexPathOfLastThread =
+            [self.threadMapping indexPathForUniqueId:self.lastThread.uniqueId];
         if (indexPathOfLastThread) {
             [self.tableView scrollToRowAtIndexPath:indexPathOfLastThread
                                   atScrollPosition:UITableViewScrollPositionNone
@@ -637,7 +905,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
         }
     }
 
-    [self checkIfEmptyView];
+    [self updateViewState];
     [self applyDefaultBackButton];
     if ([self updateHasArchivedThreadsRow]) {
         [self.tableView reloadData];
@@ -690,69 +958,43 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
 - (void)resetMappings
 {
-    // If we're entering "active" mode (e.g. view is visible and app is in foreground),
-    // reset all state updated by yapDatabaseModified:.
-    if (self.threadMappings != nil) {
-        // Before we begin observing database modifications, make sure
-        // our mapping and table state is up-to-date.
-        //
-        // We need to `beginLongLivedReadTransaction` before we update our
-        // mapping in order to jump to the most recent commit.
-        [self.uiDatabaseConnection beginLongLivedReadTransaction];
-        [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-            [self.threadMappings updateWithTransaction:transaction];
-        }];
-    }
+    [BenchManager benchWithTitle:@"HomeViewController#resetMappings"
+                           block:^{
+                               [self.databaseStorage uiReadWithBlock:^(SDSAnyReadTransaction *transaction) {
+                                   [self.threadMapping updateSwallowingErrorsWithIsViewingArchive:self.isViewingArchive
+                                                                                      transaction:transaction];
+                               }];
 
-    [self updateHasArchivedThreadsRow];
-    [self reloadTableViewData];
+                               [self updateHasArchivedThreadsRow];
+                               [self reloadTableViewData];
 
-    [self checkIfEmptyView];
+                               [self updateViewState];
+                           }];
+}
 
-    // If the user hasn't already granted contact access
-    // we don't want to request until they receive a message.
-    __block BOOL hasAnyMessages;
-    [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction * _Nonnull transaction) {
-        hasAnyMessages = [self hasAnyMessagesWithTransaction:transaction];
-    }];
-    if (hasAnyMessages) {
-        [self.contactsManager requestSystemContactsOnce];
-    }
+- (BOOL)isViewingArchive
+{
+    return self.homeViewMode == HomeViewMode_Archive;
 }
 
 - (void)applicationWillEnterForeground:(NSNotification *)notification
 {
-    [self checkIfEmptyView];
-}
-
-- (BOOL)hasAnyMessagesWithTransaction:(YapDatabaseReadTransaction *)transaction
-{
-    return [TSThread numberOfKeysInCollectionWithTransaction:transaction] > 0;
+    [self updateViewState];
 }
 
 - (void)applicationDidBecomeActive:(NSNotification *)notification
 {
     [self updateShouldObserveDBModifications];
-
-    // It's possible a thread was created while we where in the background. But since we don't honor contact
-    // requests unless the app is in the foregrond, we must check again here upon becoming active.
-    __block BOOL hasAnyMessages;
-    [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction * _Nonnull transaction) {
-        hasAnyMessages = [self hasAnyMessagesWithTransaction:transaction];
-    }];
-    
-    if (hasAnyMessages) {
-        [self.contactsManager requestSystemContactsOnceWithCompletion:^(NSError *_Nullable error) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [self updateReminderViews];
-            });
-        }];
-    }
 }
 
 - (void)applicationWillResignActive:(NSNotification *)notification
 {
     [self updateShouldObserveDBModifications];
+}
+
+- (BOOL)canBecomeFirstResponder
+{
+    return YES;
 }
 
 #pragma mark - startup
@@ -762,7 +1004,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     OWSAssertIsOnMainThread();
 
     __block NSArray<ExperienceUpgrade *> *unseenUpgrades;
-    [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
+    [self.databaseStorage uiReadWithBlock:^(SDSAnyReadTransaction *transaction) {
         unseenUpgrades = [ExperienceUpgradeFinder.sharedManager allUnseenWithTransaction:transaction];
     }];
     return unseenUpgrades;
@@ -775,9 +1017,14 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     NSArray<ExperienceUpgrade *> *unseenUpgrades = [self unseenUpgradeExperiences];
 
     if (unseenUpgrades.count > 0) {
-        ExperienceUpgradesPageViewController *experienceUpgradeViewController =
-            [[ExperienceUpgradesPageViewController alloc] initWithExperienceUpgrades:unseenUpgrades];
-        [self presentViewController:experienceUpgradeViewController animated:YES completion:nil];
+        ExperienceUpgrade *firstUpgrade = unseenUpgrades.firstObject;
+        UIViewController *_Nullable viewController =
+            [ExperienceUpgradeViewController viewControllerForExperienceUpgrade:firstUpgrade];
+        if (viewController == nil) {
+            OWSFailDebug(@"Could not display experience upgrade.");
+            return;
+        }
+        [self presentViewController:viewController animated:YES completion:nil];
     } else {
         [OWSAlerts showIOSUpgradeNagIfNecessary];
     }
@@ -804,7 +1051,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
-    return (NSInteger)[self.threadMappings numberOfSections];
+    return 3;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)aSection
@@ -815,8 +1062,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
             return self.hasVisibleReminders ? 1 : 0;
         }
         case HomeViewControllerSectionConversations: {
-            NSInteger result = (NSInteger)[self.threadMappings numberOfItemsInSection:(NSUInteger)section];
-            return result;
+            return [self.threadMapping numberOfItemsInSection:section];
         }
         case HomeViewControllerSectionArchiveButton: {
             return self.hasArchivedThreadsRow ? 1 : 0;
@@ -838,7 +1084,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     }
 
     __block ThreadViewModel *_Nullable newThreadViewModel;
-    [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction *_Nonnull transaction) {
+    [self.databaseStorage uiReadWithBlock:^(SDSAnyReadTransaction *transaction) {
         newThreadViewModel = [[ThreadViewModel alloc] initWithThread:threadRecord transaction:transaction];
     }];
     [self.threadViewModelCache setObject:newThreadViewModel forKey:threadRecord.uniqueId];
@@ -875,6 +1121,16 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
     BOOL isBlocked = [self.blocklistCache isThreadBlocked:thread.threadRecord];
     [cell configureWithThread:thread isBlocked:isBlocked];
+
+    NSString *cellName;
+    if (thread.threadRecord.isGroupThread) {
+        TSGroupThread *groupThread = (TSGroupThread *)thread.threadRecord;
+        cellName = [NSString stringWithFormat:@"cell-group-%@", groupThread.groupModel.groupName];
+    } else {
+        TSContactThread *contactThread = (TSContactThread *)thread.threadRecord;
+        cellName = [NSString stringWithFormat:@"cell-contact-%@", contactThread.contactAddress.stringForDisplay];
+    }
+    cell.accessibilityIdentifier = ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, cellName);
 
     return cell;
 }
@@ -919,23 +1175,14 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     [stackView autoPinEdgeToSuperviewMargin:ALEdgeTop];
     [stackView autoPinEdgeToSuperviewMargin:ALEdgeBottom];
 
+    cell.accessibilityIdentifier = ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"archived_conversations");
+
     return cell;
 }
 
 - (TSThread *)threadForIndexPath:(NSIndexPath *)indexPath
 {
-    __block TSThread *thread = nil;
-    [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-        thread = [[transaction extension:TSThreadDatabaseViewExtensionName] objectAtIndexPath:indexPath
-                                                                                 withMappings:self.threadMappings];
-    }];
-
-    if (![thread isKindOfClass:[TSThread class]]) {
-        OWSLogError(@"Invalid object in thread view: %@", [thread class]);
-        [OWSStorage incrementVersionOfDatabaseExtension:TSThreadDatabaseViewExtensionName];
-    }
-
-    return thread;
+    return [self.threadMapping threadForIndexPath:indexPath];
 }
 
 - (void)pullToRefreshPerformed:(UIRefreshControl *)refreshControl
@@ -1065,7 +1312,11 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
 - (void)ensureSearchBarCancelButton
 {
-    self.searchBar.showsCancelButton = (self.searchBar.isFirstResponder || self.searchBar.text.length > 0);
+    BOOL shouldShowCancelButton = (self.searchBar.isFirstResponder || self.searchBar.text.length > 0);
+    if (self.searchBar.showsCancelButton == shouldShowCancelButton) {
+        return;
+    }
+    [self.searchBar setShowsCancelButton:shouldShowCancelButton animated:self.isViewVisible];
 }
 
 - (void)updateSearchResultsVisibility
@@ -1132,24 +1383,26 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
                                             }]];
     [alert addAction:[OWSAlerts cancelAction]];
 
-    [self presentViewController:alert animated:YES completion:nil];
+    [self presentAlert:alert];
 }
 
 - (void)deleteThread:(TSThread *)thread
 {
-    [self.editingDbConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
         if ([thread isKindOfClass:[TSGroupThread class]]) {
             TSGroupThread *groupThread = (TSGroupThread *)thread;
             if (groupThread.isLocalUserInGroup) {
-                [groupThread softDeleteGroupThreadWithTransaction:transaction];
-                return;
+                [groupThread softDeleteThreadWithTransaction:transaction];
+            } else {
+                [groupThread anyRemoveWithTransaction:transaction];
             }
+        } else {
+            // contact thread
+            [thread softDeleteThreadWithTransaction:transaction];
         }
-
-        [thread removeWithTransaction:transaction];
     }];
 
-    [self checkIfEmptyView];
+    [self updateViewState];
 }
 
 - (void)archiveIndexPath:(NSIndexPath *)indexPath
@@ -1161,7 +1414,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 
     TSThread *thread = [self threadForIndexPath:indexPath];
 
-    [self.editingDbConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
         switch (self.homeViewMode) {
             case HomeViewMode_Inbox:
                 [thread archiveThreadWithTransaction:transaction];
@@ -1171,7 +1424,7 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
                 break;
         }
     }];
-    [self checkIfEmptyView];
+    [self updateViewState];
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
@@ -1221,24 +1474,14 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
             [self.navigationController pushViewController:conversationVC animated:isAnimated];
         } else {
             [self.navigationController setViewControllers:@[ self, conversationVC ] animated:isAnimated];
+            if (self.navigationController.presentedViewController) {
+                [self.navigationController dismissViewControllerAnimated:YES completion:nil];
+            }
         }
     });
 }
 
 #pragma mark - Groupings
-
-- (YapDatabaseViewMappings *)threadMappings
-{
-    OWSAssertDebug(_threadMappings != nil);
-    return _threadMappings;
-}
-
-- (void)showInboxGrouping
-{
-    OWSAssertDebug(self.homeViewMode == HomeViewMode_Archive);
-
-    [self.navigationController popToRootViewControllerAnimated:YES];
-}
 
 - (void)showArchivedConversations
 {
@@ -1264,42 +1507,160 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     }
 }
 
-- (void)updateMappings
+#pragma mark - Database delegates
+
+#pragma mark GRDB Update
+
+- (void)homeViewDatabaseSnapshotWillUpdate
 {
     OWSAssertIsOnMainThread();
-
-    self.threadMappings = [[YapDatabaseViewMappings alloc]
-        initWithGroups:@[ kReminderViewPseudoGroup, self.currentGrouping, kArchiveButtonPseudoGroup ]
-                  view:TSThreadDatabaseViewExtensionName];
-    [self.threadMappings setIsReversed:YES forGroup:self.currentGrouping];
-
-    [self resetMappings];
-
-    [self reloadTableViewData];
-    [self checkIfEmptyView];
-    [self updateReminderViews];
+    [self anyUIDBWillUpdate];
 }
 
-#pragma mark Database delegates
-
-- (YapDatabaseConnection *)uiDatabaseConnection
+- (void)homeViewDatabaseSnapshotDidUpdateWithUpdatedThreadIds:(NSSet<NSString *> *)updatedThreadIds
 {
     OWSAssertIsOnMainThread();
+    OWSAssertDebug(SSKFeatureFlags.storageMode != StorageModeYdb);
 
-    if (!_uiDatabaseConnection) {
-        _uiDatabaseConnection = [OWSPrimaryStorage.sharedManager newDatabaseConnection];
-        // default is 250
-        _uiDatabaseConnection.objectCacheLimit = 500;
-        [_uiDatabaseConnection beginLongLivedReadTransaction];
+    if (!self.shouldObserveDBModifications) {
+        return;
     }
-    return _uiDatabaseConnection;
+
+    [self anyUIDBDidUpdateWithUpdatedThreadIds:updatedThreadIds];
 }
 
-- (void)yapDatabaseModifiedExternally:(NSNotification *)notification
+- (void)homeViewDatabaseSnapshotDidUpdateExternally
+{
+    OWSAssertIsOnMainThread();
+    [self anyUIDBDidUpdateExternally];
+}
+
+- (void)homeViewDatabaseSnapshotDidReset
+{
+    OWSAssertIsOnMainThread();
+    if (self.shouldObserveDBModifications) {
+        // We don't need to do this if we're not observing db modifications since we'll
+        // do it when we resume.
+        [self resetMappings];
+    }
+}
+
+#pragma mark YapDB Update
+
+- (void)uiDatabaseWillUpdate:(NSNotification *)notification
+{
+    OWSAssertIsOnMainThread();
+    [self anyUIDBWillUpdate];
+}
+
+- (void)uiDatabaseDidUpdate:(NSNotification *)notification
+{
+    OWSAssertIsOnMainThread();
+    OWSAssertDebug(SSKFeatureFlags.storageMode == StorageModeYdb);
+
+    if (!self.shouldObserveDBModifications) {
+        return;
+    }
+
+    NSArray *notifications = notification.userInfo[OWSUIDatabaseConnectionNotificationsKey];
+    YapDatabaseConnection *uiDatabaseConnection = self.primaryStorage.uiDatabaseConnection;
+    if (![[uiDatabaseConnection ext:TSThreadDatabaseViewExtensionName] hasChangesForGroup:self.currentGrouping
+                                                                          inNotifications:notifications]) {
+
+        [self.databaseStorage uiReadWithBlock:^(SDSAnyReadTransaction *transaction) {
+            [self.threadMapping updateSwallowingErrorsWithIsViewingArchive:self.isViewingArchive
+                                                               transaction:transaction];
+        }];
+        [self updateViewState];
+
+        return;
+    }
+
+    NSSet<NSString *> *updatedThreadIds = [self.threadMapping updatedYapItemIdsForNotifications:notifications];
+    [self anyUIDBDidUpdateWithUpdatedThreadIds:updatedThreadIds];
+}
+
+- (void)uiDatabaseDidUpdateExternally:(NSNotification *)notification
+{
+    OWSAssertIsOnMainThread();
+    [self anyUIDBDidUpdateExternally];
+}
+
+#pragma mark AnyDB Update
+
+- (void)anyUIDBWillUpdate
+{
+    OWSAssertIsOnMainThread();
+    [BenchManager startEventWithTitle:@"uiDatabaseUpdate" eventId:@"uiDatabaseUpdate"];
+}
+
+- (void)anyUIDBDidUpdateWithUpdatedThreadIds:(NSSet<NSString *> *)updatedItemIds
 {
     OWSAssertIsOnMainThread();
 
+    __block ThreadMappingDiff *mappingDiff;
+    [self.databaseStorage uiReadWithBlock:^(SDSAnyReadTransaction *transaction) {
+        mappingDiff =
+            [self.threadMapping updateAndCalculateDiffSwallowingErrorsWithIsViewingArchive:self.isViewingArchive
+                                                                            updatedItemIds:updatedItemIds
+                                                                               transaction:transaction];
+    }];
+
+    // We want this regardless of if we're currently viewing the archive.
+    // So we run it before the early return
+    [self updateViewState];
+
+    if (mappingDiff.sectionChanges.count == 0 && mappingDiff.rowChanges.count == 0) {
+        return;
+    }
+
+    if ([self updateHasArchivedThreadsRow]) {
+        [self.tableView reloadData];
+        return;
+    }
+
+    [self.tableView beginUpdates];
+
+    OWSAssertDebug(mappingDiff.sectionChanges.count == 0);
+    for (ThreadMappingRowChange *rowChange in mappingDiff.rowChanges) {
+        NSString *key = rowChange.uniqueRowId;
+        OWSAssertDebug(key);
+        [self.threadViewModelCache removeObjectForKey:key];
+
+        switch (rowChange.type) {
+            case ThreadMappingChangeDelete: {
+                [self.tableView deleteRowsAtIndexPaths:@[ rowChange.oldIndexPath ]
+                                      withRowAnimation:UITableViewRowAnimationAutomatic];
+                break;
+            }
+            case ThreadMappingChangeInsert: {
+                [self.tableView insertRowsAtIndexPaths:@[ rowChange.newIndexPath ]
+                                      withRowAnimation:UITableViewRowAnimationAutomatic];
+                break;
+            }
+            case ThreadMappingChangeMove: {
+                [self.tableView deleteRowsAtIndexPaths:@[ rowChange.oldIndexPath ]
+                                      withRowAnimation:UITableViewRowAnimationAutomatic];
+                [self.tableView insertRowsAtIndexPaths:@[ rowChange.newIndexPath ]
+                                      withRowAnimation:UITableViewRowAnimationAutomatic];
+                break;
+            }
+            case ThreadMappingChangeUpdate: {
+                [self.tableView reloadRowsAtIndexPaths:@[ rowChange.oldIndexPath ]
+                                      withRowAnimation:UITableViewRowAnimationNone];
+                break;
+            }
+        }
+    }
+
+    [self.tableView endUpdates];
+    [BenchManager completeEventWithEventId:@"uiDatabaseUpdate"];
+}
+
+- (void)anyUIDBDidUpdateExternally
+{
     OWSLogVerbose(@"");
+    OWSAssertIsOnMainThread();
 
     if (self.shouldObserveDBModifications) {
         // External database modifications can't be converted into incremental updates,
@@ -1312,206 +1673,52 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
     }
 }
 
-- (void)yapDatabaseModified:(NSNotification *)notification
-{
-    OWSAssertIsOnMainThread();
-
-    if (!self.shouldObserveDBModifications) {
-        return;
-    }
-
-    NSArray *notifications = [self.uiDatabaseConnection beginLongLivedReadTransaction];
-
-    if (![[self.uiDatabaseConnection ext:TSThreadDatabaseViewExtensionName] hasChangesForGroup:self.currentGrouping
-                                                                               inNotifications:notifications]) {
-        [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-            [self.threadMappings updateWithTransaction:transaction];
-        }];
-        [self checkIfEmptyView];
-
-        return;
-    }
-
-    // If the user hasn't already granted contact access
-    // we don't want to request until they receive a message.
-    __block BOOL hasAnyMessages;
-    [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction *_Nonnull transaction) {
-        hasAnyMessages = [self hasAnyMessagesWithTransaction:transaction];
-    }];
-
-    if (hasAnyMessages) {
-        [self.contactsManager requestSystemContactsOnce];
-    }
-
-    NSArray *sectionChanges = nil;
-    NSArray *rowChanges = nil;
-    [[self.uiDatabaseConnection ext:TSThreadDatabaseViewExtensionName] getSectionChanges:&sectionChanges
-                                                                              rowChanges:&rowChanges
-                                                                        forNotifications:notifications
-                                                                            withMappings:self.threadMappings];
-
-    // We want this regardless of if we're currently viewing the archive.
-    // So we run it before the early return
-    [self checkIfEmptyView];
-
-    if ([sectionChanges count] == 0 && [rowChanges count] == 0) {
-        return;
-    }
-
-    if ([self updateHasArchivedThreadsRow]) {
-        [self.tableView reloadData];
-        return;
-    }
-
-    [self.tableView beginUpdates];
-
-    for (YapDatabaseViewSectionChange *sectionChange in sectionChanges) {
-        switch (sectionChange.type) {
-            case YapDatabaseViewChangeDelete: {
-                [self.tableView deleteSections:[NSIndexSet indexSetWithIndex:sectionChange.index]
-                              withRowAnimation:UITableViewRowAnimationAutomatic];
-                break;
-            }
-            case YapDatabaseViewChangeInsert: {
-                [self.tableView insertSections:[NSIndexSet indexSetWithIndex:sectionChange.index]
-                              withRowAnimation:UITableViewRowAnimationAutomatic];
-                break;
-            }
-            case YapDatabaseViewChangeUpdate:
-            case YapDatabaseViewChangeMove:
-                break;
-        }
-    }
-
-    for (YapDatabaseViewRowChange *rowChange in rowChanges) {
-        NSString *key = rowChange.collectionKey.key;
-        OWSAssertDebug(key);
-        [self.threadViewModelCache removeObjectForKey:key];
-
-        switch (rowChange.type) {
-            case YapDatabaseViewChangeDelete: {
-                [self.tableView deleteRowsAtIndexPaths:@[ rowChange.indexPath ]
-                                      withRowAnimation:UITableViewRowAnimationAutomatic];
-                break;
-            }
-            case YapDatabaseViewChangeInsert: {
-                [self.tableView insertRowsAtIndexPaths:@[ rowChange.newIndexPath ]
-                                      withRowAnimation:UITableViewRowAnimationAutomatic];
-                break;
-            }
-            case YapDatabaseViewChangeMove: {
-                [self.tableView deleteRowsAtIndexPaths:@[ rowChange.indexPath ]
-                                      withRowAnimation:UITableViewRowAnimationAutomatic];
-                [self.tableView insertRowsAtIndexPaths:@[ rowChange.newIndexPath ]
-                                      withRowAnimation:UITableViewRowAnimationAutomatic];
-                break;
-            }
-            case YapDatabaseViewChangeUpdate: {
-                [self.tableView reloadRowsAtIndexPaths:@[ rowChange.indexPath ]
-                                      withRowAnimation:UITableViewRowAnimationNone];
-                break;
-            }
-        }
-    }
-
-    [self.tableView endUpdates];
-}
-
-- (NSUInteger)numberOfThreadsInGroup:(NSString *)group
-{
-    // We need to consult the db view, not the mapping since the mapping only knows about
-    // the current group.
-    __block NSUInteger result;
-    [self.uiDatabaseConnection readWithBlock:^(YapDatabaseReadTransaction *transaction) {
-        YapDatabaseViewTransaction *viewTransaction = [transaction ext:TSThreadDatabaseViewExtensionName];
-        result = [viewTransaction numberOfItemsInGroup:group];
-    }];
-    return result;
-}
+#pragma mark -
 
 - (NSUInteger)numberOfInboxThreads
 {
-    return [self numberOfThreadsInGroup:TSInboxGroup];
+    return self.threadMapping.inboxCount;
 }
 
 - (NSUInteger)numberOfArchivedThreads
 {
-    return [self numberOfThreadsInGroup:TSArchiveGroup];
+    return self.threadMapping.archiveCount;
 }
 
-- (void)checkIfEmptyView
+- (void)updateViewState
 {
-    NSUInteger inboxCount = self.numberOfInboxThreads;
-    NSUInteger archiveCount = self.numberOfArchivedThreads;
-
-    if (self.homeViewMode == HomeViewMode_Inbox && inboxCount == 0 && archiveCount == 0) {
-        [self updateEmptyBoxText];
+    if (self.shouldShowFirstConversationCue) {
         [_tableView setHidden:YES];
-        [_emptyBoxLabel setHidden:NO];
-    } else if (self.homeViewMode == HomeViewMode_Archive && archiveCount == 0) {
-        [self updateEmptyBoxText];
-        [_tableView setHidden:YES];
-        [_emptyBoxLabel setHidden:NO];
+        [self.emptyInboxView setHidden:NO];
+        [self.firstConversationCueView setHidden:NO];
+        [self updateFirstConversationLabel];
     } else {
-        [_emptyBoxLabel setHidden:YES];
         [_tableView setHidden:NO];
+        [self.emptyInboxView setHidden:YES];
+        [self.firstConversationCueView setHidden:YES];
     }
 }
 
-- (void)updateEmptyBoxText
+- (BOOL)shouldShowFirstConversationCue
 {
-    // TODO: Theme, review with design.
-    _emptyBoxLabel.textColor = [UIColor grayColor];
-    _emptyBoxLabel.font = [UIFont ows_regularFontWithSize:18.f];
-    _emptyBoxLabel.textAlignment = NSTextAlignmentCenter;
+    __block BOOL hasDimissedFirstConversationCue;
+    __block BOOL hasSavedThread;
+    [self.databaseStorage uiReadWithBlock:^(SDSAnyReadTransaction *transaction) {
+        hasDimissedFirstConversationCue = [AppPreferences hasDimissedFirstConversationCueWithTransaction:transaction];
+        hasSavedThread = [SSKPreferences hasSavedThreadWithTransaction:transaction];
+    }];
 
-    NSString *firstLine = @"";
-    NSString *secondLine = @"";
-
-    if (self.homeViewMode == HomeViewMode_Inbox) {
-        if ([Environment.shared.preferences hasSentAMessage]) {
-            firstLine = NSLocalizedString(
-                @"EMPTY_INBOX_TITLE", @"Header text an existing user sees when viewing an empty inbox");
-            secondLine = NSLocalizedString(
-                @"EMPTY_INBOX_TEXT", @"Body text an existing user sees when viewing an empty inbox");
-        } else {
-            firstLine = NSLocalizedString(
-                @"EMPTY_INBOX_NEW_USER_TITLE", @"Header text a new user sees when viewing an empty inbox");
-            secondLine = NSLocalizedString(
-                @"EMPTY_INBOX_NEW_USER_TEXT", @"Body text a new user sees when viewing an empty inbox");
-        }
-    } else {
-        OWSAssertDebug(self.homeViewMode == HomeViewMode_Archive);
-        firstLine = NSLocalizedString(
-            @"EMPTY_ARCHIVE_TITLE", @"Header text an existing user sees when viewing an empty archive");
-        secondLine = NSLocalizedString(
-            @"EMPTY_ARCHIVE_TEXT", @"Body text an existing user sees when viewing an empty archive");
-    }
-    NSMutableAttributedString *fullLabelString =
-        [[NSMutableAttributedString alloc] initWithString:[NSString stringWithFormat:@"%@\n%@", firstLine, secondLine]];
-
-    [fullLabelString addAttribute:NSFontAttributeName
-                            value:[UIFont ows_boldFontWithSize:15.f]
-                            range:NSMakeRange(0, firstLine.length)];
-    [fullLabelString addAttribute:NSFontAttributeName
-                            value:[UIFont ows_regularFontWithSize:14.f]
-                            range:NSMakeRange(firstLine.length + 1, secondLine.length)];
-    [fullLabelString addAttribute:NSForegroundColorAttributeName
-                            value:Theme.primaryColor
-                            range:NSMakeRange(0, firstLine.length)];
-    // TODO: Theme, Review with design.
-    [fullLabelString addAttribute:NSForegroundColorAttributeName
-                            value:Theme.secondaryColor
-                            range:NSMakeRange(firstLine.length + 1, secondLine.length)];
-    _emptyBoxLabel.attributedText = fullLabelString;
+    return (self.homeViewMode == HomeViewMode_Inbox && self.numberOfInboxThreads == 0
+        && self.numberOfArchivedThreads == 0 && !hasDimissedFirstConversationCue && !hasSavedThread);
 }
 
 // We want to delay asking for a review until an opportune time.
 // If the user has *just* launched Signal they intend to do something, we don't want to interrupt them.
-// If the user hasn't sent a message, we don't want to ask them for a review yet.
 - (void)requestReviewIfAppropriate
 {
-    if (self.hasEverAppeared && Environment.shared.preferences.hasSentAMessage) {
+    static NSUInteger callCount = 0;
+    callCount++;
+    if (self.hasEverAppeared && callCount > 25) {
         OWSLogDebug(@"requesting review");
         if (@available(iOS 10, *)) {
             // In Debug this pops up *every* time, which is helpful, but annoying.
@@ -1536,6 +1743,18 @@ NSString *const kArchivedConversationsReuseIdentifier = @"kArchivedConversations
 {
     OWSLogVerbose(@"");
     [self reloadTableViewData];
+}
+
+#pragma mark - CameraFirstCaptureDelegate
+
+- (void)cameraFirstCaptureSendFlowDidComplete:(CameraFirstCaptureSendFlow *)cameraFirstCaptureSendFlow
+{
+    [self dismissViewControllerAnimated:true completion:nil];
+}
+
+- (void)cameraFirstCaptureSendFlowDidCancel:(CameraFirstCaptureSendFlow *)cameraFirstCaptureSendFlow
+{
+    [self dismissViewControllerAnimated:true completion:nil];
 }
 
 @end

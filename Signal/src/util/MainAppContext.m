@@ -16,9 +16,10 @@ NSString *const ReportedApplicationStateDidChangeNotification = @"ReportedApplic
 
 @interface MainAppContext ()
 
-@property (atomic) UIApplicationState reportedApplicationState;
-
 @property (nonatomic, nullable) NSMutableArray<AppActiveBlock> *appActiveBlocks;
+
+// POST GRDB TODO: Remove this
+@property (nonatomic) NSUUID *disposableDatabaseUUID;
 
 @end
 
@@ -28,6 +29,8 @@ NSString *const ReportedApplicationStateDidChangeNotification = @"ReportedApplic
 
 @synthesize mainWindow = _mainWindow;
 @synthesize appLaunchTime = _appLaunchTime;
+@synthesize buildTime = _buildTime;
+@synthesize reportedApplicationState = _reportedApplicationState;
 
 - (instancetype)init
 {
@@ -40,6 +43,7 @@ NSString *const ReportedApplicationStateDidChangeNotification = @"ReportedApplic
     self.reportedApplicationState = UIApplicationStateInactive;
 
     _appLaunchTime = [NSDate new];
+    _disposableDatabaseUUID = [NSUUID UUID];
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(applicationWillEnterForeground:)
@@ -76,14 +80,23 @@ NSString *const ReportedApplicationStateDidChangeNotification = @"ReportedApplic
 
 #pragma mark - Notifications
 
+- (UIApplicationState)reportedApplicationState
+{
+    @synchronized(self) {
+        return _reportedApplicationState;
+    }
+}
+
 - (void)setReportedApplicationState:(UIApplicationState)reportedApplicationState
 {
     OWSAssertIsOnMainThread();
 
-    if (_reportedApplicationState == reportedApplicationState) {
-        return;
+    @synchronized(self) {
+        if (_reportedApplicationState == reportedApplicationState) {
+            return;
+        }
+        _reportedApplicationState = reportedApplicationState;
     }
-    _reportedApplicationState = reportedApplicationState;
 
     [[NSNotificationCenter defaultCenter] postNotificationName:ReportedApplicationStateDidChangeNotification
                                                         object:nil
@@ -227,18 +240,49 @@ NSString *const ReportedApplicationStateDidChangeNotification = @"ReportedApplic
     return UIApplication.sharedApplication.frontmostViewControllerIgnoringAlerts;
 }
 
-- (nullable UIAlertAction *)openSystemSettingsAction
+- (nullable UIAlertAction *)openSystemSettingsActionWithCompletion:(void (^_Nullable)(void))completion
 {
     return [UIAlertAction actionWithTitle:CommonStrings.openSettingsButton
+                  accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"system_settings")
                                     style:UIAlertActionStyleDefault
                                   handler:^(UIAlertAction *_Nonnull action) {
                                       [UIApplication.sharedApplication openSystemSettings];
+                                      if (completion != nil) {
+                                          completion();
+                                      }
                                   }];
 }
 
 - (BOOL)isRunningTests
 {
     return getenv("runningTests_dontStartApp");
+}
+
+- (NSDate *)buildTime
+{
+    if (!_buildTime) {
+        NSInteger buildTimestamp =
+        [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"BuildDetails"][@"Timestamp"] integerValue];
+
+        if (buildTimestamp == 0) {
+#if RELEASE
+            // Production builds should _always_ expire, ensure that here.
+            OWSFail(@"No build timestamp, assuming app never expires.");
+#else
+            OWSLogDebug(@"No build timestamp, assuming app never expires.");
+#endif
+            _buildTime = [NSDate distantFuture];
+        } else {
+            _buildTime = [NSDate dateWithTimeIntervalSince1970:buildTimestamp];
+        }
+    }
+
+    return _buildTime;
+}
+
+- (UIInterfaceOrientation)interfaceOrientation
+{
+    return [UIApplication sharedApplication].statusBarOrientation;
 }
 
 - (void)setNetworkActivityIndicatorVisible:(BOOL)value
@@ -307,6 +351,15 @@ NSString *const ReportedApplicationStateDidChangeNotification = @"ReportedApplic
     NSURL *groupContainerDirectoryURL =
         [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:SignalApplicationGroup];
     return [groupContainerDirectoryURL path];
+}
+
+- (NSString *)appDatabaseBaseDirectoryPath
+{
+    if (SDSDatabaseStorage.shouldUseDisposableGrdb) {
+        return [self.appSharedDataDirectoryPath stringByAppendingPathComponent:self.disposableDatabaseUUID.UUIDString];
+    } else {
+        return self.appSharedDataDirectoryPath;
+    }
 }
 
 - (NSUserDefaults *)appUserDefaults

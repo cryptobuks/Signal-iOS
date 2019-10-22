@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import UIKit
@@ -35,14 +35,23 @@ final class CallKitCallManager: NSObject {
     // MARK: Actions
 
     func startCall(_ call: SignalCall) {
-        var handle: CXHandle
+        let handle: CXHandle
 
         if showNamesOnCallScreen {
-            handle = CXHandle(type: .phoneNumber, value: call.remotePhoneNumber)
+            let type: CXHandle.HandleType
+            let value: String
+            if let phoneNumber = call.remoteAddress.phoneNumber {
+                type = .phoneNumber
+                value = phoneNumber
+            } else {
+                type = .generic
+                value = call.remoteAddress.stringForDisplay
+            }
+            handle = CXHandle(type: type, value: value)
         } else {
             let callKitId = CallKitCallManager.kAnonymousCallHandlePrefix + call.localId.uuidString
             handle = CXHandle(type: .generic, value: callKitId)
-            OWSPrimaryStorage.shared().setPhoneNumber(call.remotePhoneNumber, forCallKitId: callKitId)
+            CallKitIdStore.setAddress(call.remoteAddress, forCallKitId: callKitId)
         }
 
         let startCallAction = CXStartCallAction(call: call.localId, handle: handle)
@@ -102,7 +111,7 @@ final class CallKitCallManager: NSObject {
     private(set) var calls = [SignalCall]()
 
     func callWithLocalId(_ localId: UUID) -> SignalCall? {
-        guard let index = calls.index(where: { $0.localId == localId }) else {
+        guard let index = calls.firstIndex(where: { $0.localId == localId }) else {
             return nil
         }
         return calls[index]
@@ -124,7 +133,7 @@ final class CallKitCallManager: NSObject {
 fileprivate extension Array {
 
     mutating func removeFirst(where predicate: (Element) throws -> Bool) rethrows {
-        guard let index = try index(where: predicate) else {
+        guard let index = try firstIndex(where: predicate) else {
             return
         }
 

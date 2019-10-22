@@ -96,7 +96,6 @@ public class ContactsPicker: OWSViewController, UITableViewDelegate, UITableView
         self.view = UIView()
         let tableView = UITableView()
         self.tableView = tableView
-        self.tableView.separatorColor = Theme.cellSeparatorColor
 
         view.addSubview(tableView)
         tableView.autoPinEdge(toSuperviewEdge: .top)
@@ -117,14 +116,11 @@ public class ContactsPicker: OWSViewController, UITableViewDelegate, UITableView
     override open func viewDidLoad() {
         super.viewDidLoad()
 
-        self.view.backgroundColor = Theme.backgroundColor
-        self.tableView.backgroundColor = Theme.backgroundColor
-
         searchBar.placeholder = NSLocalizedString("INVITE_FRIENDS_PICKER_SEARCHBAR_PLACEHOLDER", comment: "Search")
 
         // Auto size cells for dynamic type
         tableView.estimatedRowHeight = 60.0
-        tableView.rowHeight = UITableViewAutomaticDimension
+        tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 60
 
         tableView.allowsMultipleSelection = allowsMultipleSelection
@@ -136,7 +132,15 @@ public class ContactsPicker: OWSViewController, UITableViewDelegate, UITableView
         reloadContacts()
         updateSearchResults(searchText: "")
 
-        NotificationCenter.default.addObserver(self, selector: #selector(self.didChangePreferredContentSize), name: NSNotification.Name.UIContentSizeCategoryDidChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(self.didChangePreferredContentSize), name: UIContentSizeCategory.didChangeNotification, object: nil)
+    }
+
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+
+        view.backgroundColor = Theme.backgroundColor
+        tableView.backgroundColor = Theme.backgroundColor
+        tableView.separatorColor = Theme.cellSeparatorColor
     }
 
     @objc
@@ -172,7 +176,7 @@ public class ContactsPicker: OWSViewController, UITableViewDelegate, UITableView
                 let title = NSLocalizedString("INVITE_FLOW_REQUIRES_CONTACT_ACCESS_TITLE", comment: "Alert title when contacts disabled while trying to invite contacts to signal")
                 let body = NSLocalizedString("INVITE_FLOW_REQUIRES_CONTACT_ACCESS_BODY", comment: "Alert body when contacts disabled while trying to invite contacts to signal")
 
-                let alert = UIAlertController(title: title, message: body, preferredStyle: UIAlertControllerStyle.alert)
+                let alert = UIAlertController(title: title, message: body, preferredStyle: .alert)
 
                 let dismissText = CommonStrings.cancelButton
 
@@ -189,7 +193,7 @@ public class ContactsPicker: OWSViewController, UITableViewDelegate, UITableView
                 })
                 alert.addAction(openSettingsAction)
 
-                self.present(alert, animated: true, completion: nil)
+                self.presentAlert(alert)
 
             case CNAuthorizationStatus.notDetermined:
                 //This case means the user is prompted for the first time for allowing contacts
@@ -216,6 +220,9 @@ public class ContactsPicker: OWSViewController, UITableViewDelegate, UITableView
                 } catch let error as NSError {
                     Logger.error("Failed to fetch contacts with error:\(error)")
                 }
+        @unknown default:
+            errorHandler(OWSAssertionError("Unexpected enum value"))
+            break
         }
     }
 
@@ -328,6 +335,10 @@ public class ContactsPicker: OWSViewController, UITableViewDelegate, UITableView
         }
     }
 
+    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        searchBar.resignFirstResponder()
+    }
+
     // MARK: - Button Actions
 
     @objc func onTouchCancelButton() {
@@ -341,6 +352,10 @@ public class ContactsPicker: OWSViewController, UITableViewDelegate, UITableView
     // MARK: - Search Actions
     open func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
         updateSearchResults(searchText: searchText)
+    }
+
+    public func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
     }
 
     open func updateSearchResults(searchText: String) {

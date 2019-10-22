@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 #import "TestAppContext.h"
@@ -8,7 +8,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-#ifdef DEBUG
+#ifdef TESTABLE_BUILD
 
 @interface TestAppContext ()
 
@@ -25,6 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @synthesize mainWindow = _mainWindow;
 @synthesize appLaunchTime = _appLaunchTime;
+@synthesize buildTime = _buildTime;
 
 - (instancetype)init
 {
@@ -108,7 +109,7 @@ NS_ASSUME_NONNULL_BEGIN
     return nil;
 }
 
-- (nullable UIAlertAction *)openSystemSettingsAction
+- (nullable UIAlertAction *)openSystemSettingsActionWithCompletion:(void (^_Nullable)(void))completion
 {
     return nil;
 }
@@ -116,6 +117,19 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)isRunningTests
 {
     return YES;
+}
+
+- (NSDate *)buildTime
+{
+    if (!_buildTime) {
+        _buildTime = [NSDate new];
+    }
+    return _buildTime;
+}
+
+- (UIInterfaceOrientation)interfaceOrientation
+{
+    return UIInterfaceOrientationPortrait;
 }
 
 - (void)setNetworkActivityIndicatorVisible:(BOOL)value
@@ -146,6 +160,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSString *)appSharedDataDirectoryPath
 {
     return self.mockAppSharedDataDirectoryPath;
+}
+
+- (NSString *)appDatabaseBaseDirectoryPath
+{
+    return self.appSharedDataDirectoryPath;
 }
 
 @end

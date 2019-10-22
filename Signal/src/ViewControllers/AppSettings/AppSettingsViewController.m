@@ -24,6 +24,7 @@
 @interface AppSettingsViewController ()
 
 @property (nonatomic, readonly) OWSContactsManager *contactsManager;
+@property (nonatomic, nullable) OWSInviteFlow *inviteFlow;
 
 @end
 
@@ -83,7 +84,8 @@
     self.navigationItem.leftBarButtonItem =
         [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemStop
                                                       target:self
-                                                      action:@selector(dismissWasPressed:)];
+                                                      action:@selector(dismissWasPressed:)
+                                     accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"dismiss")];
     [self updateRightBarButtonForTheme];
     [self observeNotifications];
 
@@ -164,6 +166,8 @@
                                  }
                                  [accessoryLabel sizeToFit];
                                  cell.accessoryView = accessoryLabel;
+                                 cell.accessibilityIdentifier
+                                     = ACCESSIBILITY_IDENTIFIER_WITH_NAME(AppSettingsViewController, @"network_status");
                                  return cell;
                              }
                                          actionBlock:nil]];
@@ -171,24 +175,45 @@
 
     [section addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"SETTINGS_INVITE_TITLE",
                                                               @"Settings table view cell label")
+                                  accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"invite")
                                               actionBlock:^{
                                                   [weakSelf showInviteFlow];
                                               }]];
+
+    // TODO Xcode 11: Delete this once we're compiling only in Xcode 11
+#ifdef __IPHONE_13_0
+    // Starting with iOS 13, show an appearance section to allow setting the app theme
+    // to match the "system" dark/light mode settings and to adjust the app specific
+    // language settings.
+    if (@available(iOS 13, *)) {
+        [section addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"SETTINGS_APPEARANCE_TITLE",
+                                                                  @"The title for the appearance settings.")
+                                      accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"appearance")
+                                                  actionBlock:^{
+                                                      [weakSelf showAppearance];
+                                                  }]];
+    }
+#endif
+
     [section addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"SETTINGS_PRIVACY_TITLE",
                                                               @"Settings table view cell label")
+                                  accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"privacy")
                                               actionBlock:^{
                                                   [weakSelf showPrivacy];
                                               }]];
     [section addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"SETTINGS_NOTIFICATIONS", nil)
+                                  accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"notifications")
                                               actionBlock:^{
                                                   [weakSelf showNotifications];
                                               }]];
     [section addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"LINKED_DEVICES_TITLE",
                                                               @"Menu item and navbar title for the device manager")
+                                  accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"linked_devices")
                                               actionBlock:^{
                                                   [weakSelf showLinkedDevices];
                                               }]];
     [section addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"SETTINGS_ADVANCED_TITLE", @"")
+                                  accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"advanced")
                                               actionBlock:^{
                                                   [weakSelf showAdvanced];
                                               }]];
@@ -197,17 +222,20 @@
     if (showBackup) {
         [section addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"SETTINGS_BACKUP",
                                                                   @"Label for the backup view in app settings.")
+                                      accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"backup")
                                                   actionBlock:^{
                                                       [weakSelf showBackup];
                                                   }]];
     }
     [section addItem:[OWSTableItem disclosureItemWithText:NSLocalizedString(@"SETTINGS_ABOUT", @"")
+                                  accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"about")
                                               actionBlock:^{
                                                   [weakSelf showAbout];
                                               }]];
 
 #ifdef USE_DEBUG_UI
     [section addItem:[OWSTableItem disclosureItemWithText:@"Debug UI"
+                                  accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"debugui")
                                               actionBlock:^{
                                                   [weakSelf showDebugUI];
                                               }]];
@@ -216,16 +244,20 @@
     if (TSAccountManager.sharedInstance.isDeregistered) {
         [section addItem:[self destructiveButtonItemWithTitle:NSLocalizedString(@"SETTINGS_REREGISTER_BUTTON",
                                                                   @"Label for re-registration button.")
+                                      accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"reregister")
                                                      selector:@selector(reregisterUser)
                                                         color:[UIColor ows_materialBlueColor]]];
         [section addItem:[self destructiveButtonItemWithTitle:NSLocalizedString(@"SETTINGS_DELETE_DATA_BUTTON",
                                                                   @"Label for 'delete data' button.")
+                                      accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"delete_data")
                                                      selector:@selector(deleteUnregisterUserData)
                                                         color:[UIColor ows_destructiveRedColor]]];
     } else {
-        [section addItem:[self destructiveButtonItemWithTitle:NSLocalizedString(@"SETTINGS_DELETE_ACCOUNT_BUTTON", @"")
-                                                     selector:@selector(unregisterUser)
-                                                        color:[UIColor ows_destructiveRedColor]]];
+        [section
+            addItem:[self destructiveButtonItemWithTitle:NSLocalizedString(@"SETTINGS_DELETE_ACCOUNT_BUTTON", @"")
+                                 accessibilityIdentifier:ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"delete_account")
+                                                selector:@selector(unregisterUser)
+                                                   color:[UIColor ows_destructiveRedColor]]];
     }
 
     [contents addSection:section];
@@ -233,7 +265,10 @@
     self.contents = contents;
 }
 
-- (OWSTableItem *)destructiveButtonItemWithTitle:(NSString *)title selector:(SEL)selector color:(UIColor *)color
+- (OWSTableItem *)destructiveButtonItemWithTitle:(NSString *)title
+                         accessibilityIdentifier:(NSString *)accessibilityIdentifier
+                                        selector:(SEL)selector
+                                           color:(UIColor *)color
 {
     __weak AppSettingsViewController *weakSelf = self;
    return [OWSTableItem
@@ -254,6 +289,7 @@
             [button autoSetDimension:ALDimensionHeight toSize:kButtonHeight];
             [button autoVCenterInSuperview];
             [button autoPinLeadingAndTrailingToSuperviewMargin];
+            button.accessibilityIdentifier = accessibilityIdentifier;
 
             return cell;
         }
@@ -281,9 +317,20 @@
     [avatarView autoSetDimension:ALDimensionHeight toSize:kLargeAvatarSize];
 
     if (!localProfileAvatarImage) {
-        UIImage *cameraImage = [UIImage imageNamed:@"settings-avatar-camera"];
-        UIImageView *cameraImageView = [[UIImageView alloc] initWithImage:cameraImage];
+        UIImageView *cameraImageView = [UIImageView new];
+        [cameraImageView setTemplateImageName:@"camera-outline-24" tintColor:Theme.secondaryColor];
         [cell.contentView addSubview:cameraImageView];
+
+        [cameraImageView autoSetDimensionsToSize:CGSizeMake(32, 32)];
+        cameraImageView.contentMode = UIViewContentModeCenter;
+        cameraImageView.backgroundColor = Theme.backgroundColor;
+        cameraImageView.layer.cornerRadius = 16;
+        cameraImageView.layer.shadowColor =
+            [(Theme.isDarkThemeEnabled ? Theme.darkThemeOffBackgroundColor : Theme.primaryColor) CGColor];
+        cameraImageView.layer.shadowOffset = CGSizeMake(1, 1);
+        cameraImageView.layer.shadowOpacity = 0.5;
+        cameraImageView.layer.shadowRadius = 4;
+
         [cameraImageView autoPinTrailingToEdgeOfView:avatarView];
         [cameraImageView autoPinEdge:ALEdgeBottom toEdge:ALEdgeBottom ofView:avatarView];
     }
@@ -310,18 +357,29 @@
     [titleLabel autoPinEdgeToSuperviewEdge:ALEdgeTop];
     [titleLabel autoPinWidthToSuperview];
 
+    __block UIView *lastTitleView = titleLabel;
     const CGFloat kSubtitlePointSize = 12.f;
-    UILabel *subtitleLabel = [UILabel new];
-    subtitleLabel.textColor = [Theme secondaryColor];
-    subtitleLabel.font = [UIFont ows_regularFontWithSize:kSubtitlePointSize];
-    subtitleLabel.attributedText = [[NSAttributedString alloc]
-        initWithString:[PhoneNumber bestEffortFormatPartialUserSpecifiedTextToLookLikeAPhoneNumber:[TSAccountManager
-                                                                                                       localNumber]]];
-    subtitleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
-    [nameView addSubview:subtitleLabel];
-    [subtitleLabel autoPinEdge:ALEdgeTop toEdge:ALEdgeBottom ofView:titleLabel];
-    [subtitleLabel autoPinLeadingToSuperviewMargin];
-    [subtitleLabel autoPinEdgeToSuperviewEdge:ALEdgeBottom];
+    void (^addSubtitle)(NSString *) = ^(NSString *subtitle) {
+        UILabel *subtitleLabel = [UILabel new];
+        subtitleLabel.textColor = Theme.secondaryColor;
+        subtitleLabel.font = [UIFont ows_regularFontWithSize:kSubtitlePointSize];
+        subtitleLabel.text = subtitle;
+        subtitleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+        [nameView addSubview:subtitleLabel];
+        [subtitleLabel autoPinEdge:ALEdgeTop toEdge:ALEdgeBottom ofView:lastTitleView];
+        [subtitleLabel autoPinLeadingToSuperviewMargin];
+        lastTitleView = subtitleLabel;
+    };
+
+    addSubtitle(
+        [PhoneNumber bestEffortFormatPartialUserSpecifiedTextToLookLikeAPhoneNumber:[TSAccountManager localNumber]]);
+
+    NSString *_Nullable username = [OWSProfileManager.sharedManager localUsername];
+    if (username.length > 0) {
+        addSubtitle([CommonFormats formatUsername:username]);
+    }
+
+    [lastTitleView autoPinEdgeToSuperviewEdge:ALEdgeBottom];
 
     UIImage *disclosureImage = [UIImage imageNamed:(CurrentAppContext().isRTL ? @"NavBarBack" : @"NavBarBackRTL")];
     OWSAssertDebug(disclosureImage);
@@ -335,18 +393,27 @@
     [disclosureButton setContentCompressionResistancePriority:(UILayoutPriorityDefaultHigh + 1)
                                                       forAxis:UILayoutConstraintAxisHorizontal];
 
+    cell.accessibilityIdentifier = ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"profile");
+
     return cell;
 }
 
 - (void)showInviteFlow
 {
     OWSInviteFlow *inviteFlow = [[OWSInviteFlow alloc] initWithPresentingViewController:self];
-    [self presentViewController:inviteFlow.actionSheetController animated:YES completion:nil];
+    self.inviteFlow = inviteFlow;
+    [inviteFlow presentWithIsAnimated:YES completion:nil];
 }
 
 - (void)showPrivacy
 {
     PrivacySettingsTableViewController *vc = [[PrivacySettingsTableViewController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)showAppearance
+{
+    AppearanceSettingsTableViewController *vc = [AppearanceSettingsTableViewController new];
     [self.navigationController pushViewController:vc animated:YES];
 }
 
@@ -385,10 +452,12 @@
     [self.navigationController pushViewController:vc animated:YES];
 }
 
+#ifdef USE_DEBUG_UI
 - (void)showDebugUI
 {
     [DebugUITableViewController presentDebugUIFromViewController:self];
 }
+#endif
 
 - (void)dismissWasPressed:(id)sender
 {
@@ -410,19 +479,19 @@
 - (void)showDeleteAccountUI:(BOOL)isRegistered
 {
     __weak AppSettingsViewController *weakSelf = self;
-    
-    UIAlertController *alertController =
+
+    UIAlertController *alert =
         [UIAlertController alertControllerWithTitle:NSLocalizedString(@"CONFIRM_ACCOUNT_DESTRUCTION_TITLE", @"")
                                             message:NSLocalizedString(@"CONFIRM_ACCOUNT_DESTRUCTION_TEXT", @"")
                                      preferredStyle:UIAlertControllerStyleAlert];
-    [alertController addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"PROCEED_BUTTON", @"")
-                                                        style:UIAlertActionStyleDestructive
-                                                      handler:^(UIAlertAction *action) {
-                                                          [weakSelf deleteAccount:isRegistered];
-                                                      }]];
-    [alertController addAction:[OWSAlerts cancelAction]];
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"PROCEED_BUTTON", @"")
+                                              style:UIAlertActionStyleDestructive
+                                            handler:^(UIAlertAction *action) {
+                                                [weakSelf deleteAccount:isRegistered];
+                                            }]];
+    [alert addAction:[OWSAlerts cancelAction]];
 
-    [self presentViewController:alertController animated:YES completion:nil];
+    [self presentAlert:alert];
 }
 
 - (void)deleteAccount:(BOOL)isRegistered
@@ -471,25 +540,33 @@
                                                         target:self
                                                         action:@selector(didPressEnableDarkTheme:)];
     }
+    barButtonItem.accessibilityIdentifier = ACCESSIBILITY_IDENTIFIER_WITH_NAME(self, @"dark_theme");
     return barButtonItem;
 }
 
 - (void)didPressEnableDarkTheme:(id)sender
 {
-    [Theme setIsDarkThemeEnabled:YES];
+    [Theme setCurrentTheme:ThemeMode_Dark];
     [self updateRightBarButtonForTheme];
     [self updateTableContents];
 }
 
 - (void)didPressDisableDarkTheme:(id)sender
 {
-    [Theme setIsDarkThemeEnabled:NO];
+    [Theme setCurrentTheme:ThemeMode_Light];
     [self updateRightBarButtonForTheme];
     [self updateTableContents];
 }
 
 - (void)updateRightBarButtonForTheme
 {
+    // TODO Xcode 11: Delete this once we're compiling only in Xcode 11
+#ifdef __IPHONE_13_0
+    if (@available(iOS 13, *)) {
+        // Don't show the moon button in iOS 13+, theme settings are now in a menu
+        return;
+    }
+#endif
     self.navigationItem.rightBarButtonItem = [self darkThemeBarButton];
 }
 

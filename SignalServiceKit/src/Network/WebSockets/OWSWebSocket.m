@@ -13,7 +13,6 @@
 #import "OWSError.h"
 #import "OWSMessageManager.h"
 #import "OWSMessageReceiver.h"
-#import "OWSPrimaryStorage.h"
 #import "OWSSignalService.h"
 #import "SSKEnvironment.h"
 #import "TSAccountManager.h"
@@ -32,12 +31,15 @@ static const CGFloat kSocketReconnectDelaySeconds = 5.f;
 // If the app is in the background, it should keep the
 // websocket open if:
 //
-// a) It has received a notification in the last 25 seconds.
-static const CGFloat kBackgroundOpenSocketDurationSeconds = 25.f;
-// b) It has received a message over the socket in the last 15 seconds.
-static const CGFloat kBackgroundKeepSocketAliveDurationSeconds = 15.f;
+// a) It has received a notification or app has been activated in the last N seconds.
+static const NSTimeInterval kKeepAliveDuration_Default = 20.f;
+// b) It has received a message over the socket in the last N seconds.
+static const NSTimeInterval kKeepAliveDuration_ReceiveMessage = 15.f;
 // c) It is in the process of making a request.
-static const CGFloat kMakeRequestKeepSocketAliveDurationSeconds = 30.f;
+static const NSTimeInterval kKeepAliveDuration_MakeRequestInForeground = 25.f;
+static const NSTimeInterval kKeepAliveDuration_MakeRequestInBackground = 20.f;
+// d) It has just received the response to a request.
+static const NSTimeInterval kKeepAliveDuration_ReceiveResponse = 5.f;
 
 NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_OWSWebSocketStateDidChange";
 
@@ -245,9 +247,9 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
     return OutageDetection.sharedManager;
 }
 
-- (OWSPrimaryStorage *)primaryStorage
+- (SDSDatabaseStorage *)databaseStorage
 {
-    return SSKEnvironment.shared.primaryStorage;
+    return SDSDatabaseStorage.shared;
 }
 
 - (id<NotificationsProtocol>)notificationsManager
@@ -480,6 +482,13 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
     OWSAssertDebug(success);
     OWSAssertDebug(failure);
 
+    DispatchMainThreadSafe(^{
+        NSTimeInterval keepAlive
+            = (CurrentAppContext().isMainAppAndActive ? kKeepAliveDuration_MakeRequestInForeground
+                                                      : kKeepAliveDuration_MakeRequestInBackground);
+        [self requestSocketAliveForAtLeastSeconds:keepAlive];
+    });
+
     TSSocketMessage *socketMessage = [[TSSocketMessage alloc] initWithRequestId:[Cryptography randomUInt64]
                                                                         success:success
                                                                         failure:failure];
@@ -528,8 +537,8 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
         return;
     }
 
-    WebSocketProtoWebSocketMessageBuilder *messageBuilder =
-        [WebSocketProtoWebSocketMessage builderWithType:WebSocketProtoWebSocketMessageTypeRequest];
+    WebSocketProtoWebSocketMessageBuilder *messageBuilder = [WebSocketProtoWebSocketMessage builder];
+    [messageBuilder setType:WebSocketProtoWebSocketMessageTypeRequest];
     [messageBuilder setRequest:requestProto];
 
     NSData *_Nullable messageData = [messageBuilder buildSerializedDataAndReturnError:&error];
@@ -583,7 +592,7 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
     OWSLogInfo(@"received WebSocket response requestId: %llu, status: %u", message.requestID, message.status);
 
     DispatchMainThreadSafe(^{
-        [self requestSocketAliveForAtLeastSeconds:kMakeRequestKeepSocketAliveDurationSeconds];
+        [self requestSocketAliveForAtLeastSeconds:kKeepAliveDuration_ReceiveResponse];
     });
 
     UInt64 requestId = message.requestID;
@@ -695,14 +704,14 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
         return;
     }
 
-    OWSLogError(@"Websocket did fail with error: %@", error);
+    OWSLogWarn(@"Websocket did fail with error: %@", error);
     if ([error.domain isEqualToString:SSKWebSocketError.errorDomain]) {
         NSNumber *_Nullable statusCode = error.userInfo[SSKWebSocketError.kStatusCodeKey];
         if (statusCode.unsignedIntegerValue == 403) {
             if (self.tsAccountManager.isRegisteredAndReady) {
                 [self.tsAccountManager setIsDeregistered:YES];
             } else {
-                OWSFailDebug(@"Ignoring auth failure; not registered and ready.");
+                OWSLogWarn(@"Ignoring auth failure; not registered and ready.");
             }
         }
     }
@@ -730,12 +739,14 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
         return;
     }
 
-    if (wsMessage.type == WebSocketProtoWebSocketMessageTypeRequest) {
+    if (!wsMessage.hasType) {
+        OWSFailDebug(@"webSocket:didReceiveMessage: missing type.");
+    } else if (wsMessage.unwrappedType == WebSocketProtoWebSocketMessageTypeRequest) {
         [self processWebSocketRequestMessage:wsMessage.request];
-    } else if (wsMessage.type == WebSocketProtoWebSocketMessageTypeResponse) {
+    } else if (wsMessage.unwrappedType == WebSocketProtoWebSocketMessageTypeResponse) {
         [self processWebSocketResponseMessage:wsMessage.response];
     } else {
-        OWSLogWarn(@"webSocket:didReceiveMessage: unknown.");
+        OWSFailDebug(@"webSocket:didReceiveMessage: unknown.");
     }
 }
 
@@ -760,7 +771,7 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
 
     // If we receive a message over the socket while the app is in the background,
     // prolong how long the socket stays open.
-    [self requestSocketAliveForAtLeastSeconds:kBackgroundKeepSocketAliveDurationSeconds];
+    [self requestSocketAliveForAtLeastSeconds:kKeepAliveDuration_ReceiveMessage];
 
     if ([message.path isEqualToString:@"/api/v1/message"] && [message.verb isEqualToString:@"PUT"]) {
 
@@ -773,7 +784,7 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
                 BOOL useSignalingKey = [message.headers containsObject:@"X-Signal-Key: true"];
                 NSData *_Nullable decryptedPayload;
                 if (useSignalingKey) {
-                    NSString *_Nullable signalingKey = TSAccountManager.signalingKey;
+                    NSString *_Nullable signalingKey = self.tsAccountManager.storedSignalingKey;
                     OWSAssertDebug(signalingKey);
                     decryptedPayload =
                         [Cryptography decryptAppleMessagePayload:message.body withSignalingKey:signalingKey];
@@ -795,12 +806,11 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
             }
 
             if (!success) {
-                [[self.primaryStorage newDatabaseConnection]
-                    readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
-                        TSErrorMessage *errorMessage = [TSErrorMessage corruptedMessageInUnknownThread];
-                        [self.notificationsManager notifyUserForThreadlessErrorMessage:errorMessage
-                                                                           transaction:transaction];
-                    }];
+                [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+                    ThreadlessErrorMessage *errorMessage = [ThreadlessErrorMessage corruptedMessageInUnknownThread];
+                    [self.notificationsManager notifyUserForThreadlessErrorMessage:errorMessage
+                                                                       transaction:transaction];
+                }];
             }
 
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -835,8 +845,8 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
         return;
     }
 
-    WebSocketProtoWebSocketMessageBuilder *messageBuilder =
-        [WebSocketProtoWebSocketMessage builderWithType:WebSocketProtoWebSocketMessageTypeResponse];
+    WebSocketProtoWebSocketMessageBuilder *messageBuilder = [WebSocketProtoWebSocketMessage builder];
+    [messageBuilder setType:WebSocketProtoWebSocketMessageTypeResponse];
     [messageBuilder setResponse:response];
 
     NSData *_Nullable messageData = [messageBuilder buildSerializedDataAndReturnError:&error];
@@ -900,8 +910,8 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
 - (NSString *)webSocketAuthenticationString
 {
     return [NSString stringWithFormat:@"?login=%@&password=%@",
-                     [[TSAccountManager localNumber] stringByReplacingOccurrencesOfString:@"+" withString:@"%2B"],
-                     [TSAccountManager serverAuthToken]];
+                     [TSAccountManager.localAddress.serviceIdentifier stringByReplacingOccurrencesOfString:@"+" withString:@"%2B"],
+                     self.tsAccountManager.storedServerAuthToken];
 }
 
 #pragma mark - Socket LifeCycle
@@ -936,7 +946,7 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
     }
 }
 
-- (void)requestSocketAliveForAtLeastSeconds:(CGFloat)durationSeconds
+- (void)requestSocketAliveForAtLeastSeconds:(NSTimeInterval)durationSeconds
 {
     OWSAssertIsOnMainThread();
     OWSAssertDebug(durationSeconds > 0.f);
@@ -1011,7 +1021,7 @@ NSString *const kNSNotification_OWSWebSocketStateDidChange = @"kNSNotification_O
         //
         // If the app is inactive, it will open the websocket for a
         // period of time.
-        [self requestSocketAliveForAtLeastSeconds:kBackgroundOpenSocketDurationSeconds];
+        [self requestSocketAliveForAtLeastSeconds:kKeepAliveDuration_Default];
     });
 }
 

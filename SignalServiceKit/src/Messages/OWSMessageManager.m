@@ -8,7 +8,6 @@
 #import "ContactsManagerProtocol.h"
 #import "MimeTypeUtil.h"
 #import "NSNotificationCenter+OWS.h"
-#import "NSString+SSK.h"
 #import "NotificationsProtocol.h"
 #import "OWSAttachmentDownloads.h"
 #import "OWSBlockingManager.h"
@@ -25,20 +24,17 @@
 #import "OWSMessageSender.h"
 #import "OWSMessageUtils.h"
 #import "OWSOutgoingReceiptManager.h"
-#import "OWSPrimaryStorage+SessionStore.h"
-#import "OWSPrimaryStorage.h"
 #import "OWSReadReceiptManager.h"
 #import "OWSRecordTranscriptJob.h"
-#import "OWSSyncGroupsMessage.h"
 #import "OWSSyncGroupsRequestMessage.h"
 #import "ProfileManagerProtocol.h"
 #import "SSKEnvironment.h"
+#import "SSKSessionStore.h"
 #import "TSAccountManager.h"
 #import "TSAttachment.h"
 #import "TSAttachmentPointer.h"
 #import "TSAttachmentStream.h"
 #import "TSContactThread.h"
-#import "TSDatabaseView.h"
 #import "TSGroupModel.h"
 #import "TSGroupThread.h"
 #import "TSIncomingMessage.h"
@@ -48,17 +44,14 @@
 #import "TSQuotedMessage.h"
 #import <SignalCoreKit/Cryptography.h>
 #import <SignalCoreKit/NSDate+OWS.h>
+#import <SignalCoreKit/NSString+OWS.h>
+#import <SignalServiceKit/OWSUnknownProtocolVersionMessage.h>
 #import <SignalServiceKit/SignalRecipient.h>
 #import <SignalServiceKit/SignalServiceKit-Swift.h>
-#import <YapDatabase/YapDatabase.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface OWSMessageManager ()
-
-@property (nonatomic, readonly) OWSPrimaryStorage *primaryStorage;
-@property (nonatomic, readonly) YapDatabaseConnection *dbConnection;
-@property (nonatomic, readonly) OWSIncomingMessageFinder *incomingMessageFinder;
+@interface OWSMessageManager () <SDSDatabaseStorageObserver>
 
 @end
 
@@ -66,24 +59,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 @implementation OWSMessageManager
 
-+ (instancetype)sharedManager
-{
-    OWSAssertDebug(SSKEnvironment.shared.messageManager);
-
-    return SSKEnvironment.shared.messageManager;
-}
-
-- (instancetype)initWithPrimaryStorage:(OWSPrimaryStorage *)primaryStorage
+- (instancetype)init
 {
     self = [super init];
 
     if (!self) {
         return self;
     }
-
-    _primaryStorage = primaryStorage;
-    _dbConnection = primaryStorage.newDatabaseConnection;
-    _incomingMessageFinder = [[OWSIncomingMessageFinder alloc] initWithPrimaryStorage:primaryStorage];
 
     OWSSingletonAssert();
 
@@ -106,7 +88,7 @@ NS_ASSUME_NONNULL_BEGIN
     return SSKEnvironment.shared.contactsManager;
 }
 
-- (SSKMessageSenderJobQueue *)messageSenderJobQueue
+- (MessageSenderJobQueue *)messageSenderJobQueue
 {
     return SSKEnvironment.shared.messageSenderJobQueue;
 }
@@ -168,32 +150,51 @@ NS_ASSUME_NONNULL_BEGIN
     return SSKEnvironment.shared.attachmentDownloads;
 }
 
+- (SDSDatabaseStorage *)databaseStorage
+{
+    return SDSDatabaseStorage.shared;
+}
+
+- (SSKSessionStore *)sessionStore
+{
+    return SSKEnvironment.shared.sessionStore;
+}
+
 #pragma mark -
 
 - (void)startObserving
 {
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(yapDatabaseModified:)
-                                                 name:YapDatabaseModifiedNotification
-                                               object:OWSPrimaryStorage.sharedManager.dbNotificationObject];
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(yapDatabaseModified:)
-                                                 name:YapDatabaseModifiedExternallyNotification
-                                               object:nil];
+    [self.databaseStorage addDatabaseStorageObserver:self];
 }
 
-- (void)yapDatabaseModified:(NSNotification *)notification
+#pragma mark - SDSDatabaseStorageObserver
+
+- (void)databaseStorageDidUpdateWithChange:(SDSDatabaseStorageChange *)change
 {
-    if (AppReadiness.isAppReady) {
-        [OWSMessageUtils.sharedManager updateApplicationBadgeCount];
-    } else {
-        static dispatch_once_t onceToken;
-        dispatch_once(&onceToken, ^{
-            [AppReadiness runNowOrWhenAppDidBecomeReady:^{
-                [OWSMessageUtils.sharedManager updateApplicationBadgeCount];
-            }];
-        });
+    OWSAssertIsOnMainThread();
+    OWSAssertDebug(AppReadiness.isAppReady);
+
+    if (!change.didUpdateInteractions) {
+        return;
     }
+
+    [OWSMessageUtils.sharedManager updateApplicationBadgeCount];
+}
+
+- (void)databaseStorageDidUpdateExternally
+{
+    OWSAssertIsOnMainThread();
+    OWSAssertDebug(AppReadiness.isAppReady);
+
+    [OWSMessageUtils.sharedManager updateApplicationBadgeCount];
+}
+
+- (void)databaseStorageDidReset
+{
+    OWSAssertIsOnMainThread();
+    OWSAssertDebug(AppReadiness.isAppReady);
+
+    [OWSMessageUtils.sharedManager updateApplicationBadgeCount];
 }
 
 #pragma mark - Blocking
@@ -202,7 +203,7 @@ NS_ASSUME_NONNULL_BEGIN
 {
     OWSAssertDebug(envelope);
 
-    return [self.blockingManager isRecipientIdBlocked:envelope.source];
+    return [self.blockingManager isAddressBlocked:envelope.sourceAddress];
 }
 
 - (BOOL)isDataMessageBlocked:(SSKProtoDataMessage *)dataMessage envelope:(SSKProtoEnvelope *)envelope
@@ -227,7 +228,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)throws_processEnvelope:(SSKProtoEnvelope *)envelope
                  plaintextData:(NSData *_Nullable)plaintextData
                wasReceivedByUD:(BOOL)wasReceivedByUD
-                   transaction:(YapDatabaseReadWriteTransaction *)transaction
+                   transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -248,7 +249,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     OWSLogInfo(@"handling decrypted envelope: %@", [self descriptionForEnvelope:envelope]);
 
-    if (!envelope.hasSource || envelope.source.length < 1 || !envelope.source.isValidE164) {
+    if (!envelope.hasValidSource) {
         OWSFailDebug(@"incoming envelope has invalid source");
         return;
     }
@@ -256,12 +257,19 @@ NS_ASSUME_NONNULL_BEGIN
         OWSFailDebug(@"incoming envelope has invalid source device");
         return;
     }
+    if (!envelope.hasType) {
+        OWSFailDebug(@"incoming envelope is missing type.");
+        return;
+    }
 
-    OWSAssertDebug(![self isEnvelopeSenderBlocked:envelope]);
+    if ([self isEnvelopeSenderBlocked:envelope]) {
+        OWSLogInfo(@"incoming envelope sender is blocked.");
+        return;
+    }
 
     [self checkForUnknownLinkedDevice:envelope transaction:transaction];
 
-    switch (envelope.type) {
+    switch (envelope.unwrappedType) {
         case SSKProtoEnvelopeTypeCiphertext:
         case SSKProtoEnvelopeTypePrekeyBundle:
         case SSKProtoEnvelopeTypeUnidentifiedSender:
@@ -286,12 +294,12 @@ NS_ASSUME_NONNULL_BEGIN
             OWSLogWarn(@"Received an unknown message type");
             break;
         default:
-            OWSLogWarn(@"Received unhandled envelope type: %d", (int)envelope.type);
+            OWSLogWarn(@"Received unhandled envelope type: %d", (int)envelope.unwrappedType);
             break;
     }
 }
 
-- (void)handleDeliveryReceipt:(SSKProtoEnvelope *)envelope transaction:(YapDatabaseReadWriteTransaction *)transaction
+- (void)handleDeliveryReceipt:(SSKProtoEnvelope *)envelope transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -301,27 +309,30 @@ NS_ASSUME_NONNULL_BEGIN
         OWSFail(@"Missing transaction.");
         return;
     }
-
+    if (![SDS fitsInInt64:envelope.timestamp]) {
+        OWSFailDebug(@"Invalid timestamp.");
+        return;
+    }
     // Old-style delivery notices don't include a "delivery timestamp".
-    [self processDeliveryReceiptsFromRecipientId:envelope.source
-                                  sentTimestamps:@[
-                                      @(envelope.timestamp),
-                                  ]
-                               deliveryTimestamp:nil
-                                     transaction:transaction];
+    [self processDeliveryReceiptsFromRecipient:envelope.sourceAddress
+                                sentTimestamps:@[
+                                    @(envelope.timestamp),
+                                ]
+                             deliveryTimestamp:nil
+                                   transaction:transaction];
 }
 
 // deliveryTimestamp is an optional parameter, since legacy
 // delivery receipts don't have a "delivery timestamp".  Those
 // messages repurpose the "timestamp" field to indicate when the
 // corresponding message was originally sent.
-- (void)processDeliveryReceiptsFromRecipientId:(NSString *)recipientId
-                                sentTimestamps:(NSArray<NSNumber *> *)sentTimestamps
-                             deliveryTimestamp:(NSNumber *_Nullable)deliveryTimestamp
-                                   transaction:(YapDatabaseReadWriteTransaction *)transaction
+- (void)processDeliveryReceiptsFromRecipient:(SignalServiceAddress *)address
+                              sentTimestamps:(NSArray<NSNumber *> *)sentTimestamps
+                           deliveryTimestamp:(NSNumber *_Nullable)deliveryTimestamp
+                                 transaction:(SDSAnyWriteTransaction *)transaction
 {
-    if (recipientId.length < 1) {
-        OWSFailDebug(@"Empty recipientId.");
+    if (!address.isValid) {
+        OWSFailDebug(@"invalid recipient.");
         return;
     }
     if (sentTimestamps.count < 1) {
@@ -332,14 +343,30 @@ NS_ASSUME_NONNULL_BEGIN
         OWSFail(@"Missing transaction.");
         return;
     }
+    if (deliveryTimestamp != nil && ![SDS fitsInInt64WithNSNumber:deliveryTimestamp]) {
+        OWSFailDebug(@"Invalid timestamp.");
+        return;
+    }
 
     for (NSNumber *nsTimestamp in sentTimestamps) {
         uint64_t timestamp = [nsTimestamp unsignedLongLongValue];
+        if (![SDS fitsInInt64:timestamp]) {
+            OWSFailDebug(@"Invalid timestamp.");
+            continue;
+        }
 
-        NSArray<TSOutgoingMessage *> *messages
-            = (NSArray<TSOutgoingMessage *> *)[TSInteraction interactionsWithTimestamp:timestamp
-                                                                               ofClass:[TSOutgoingMessage class]
-                                                                       withTransaction:transaction];
+        NSError *error;
+        NSArray<TSOutgoingMessage *> *messages = (NSArray<TSOutgoingMessage *> *)[InteractionFinder
+            interactionsWithTimestamp:timestamp
+                               filter:^(TSInteraction *interaction) {
+                                   return [interaction isKindOfClass:[TSOutgoingMessage class]];
+                               }
+                          transaction:transaction
+                                error:&error];
+        if (error != nil) {
+            OWSFailDebug(@"Error loading interactions: %@", error);
+        }
+
         if (messages.count < 1) {
             // The service sends delivery receipts for "unpersisted" messages
             // like group updates, so these errors are expected to a certain extent.
@@ -353,7 +380,7 @@ NS_ASSUME_NONNULL_BEGIN
                     timestamp);
             }
             for (TSOutgoingMessage *outgoingMessage in messages) {
-                [outgoingMessage updateWithDeliveredRecipient:recipientId
+                [outgoingMessage updateWithDeliveredRecipient:address
                                             deliveryTimestamp:deliveryTimestamp
                                                   transaction:transaction];
             }
@@ -364,7 +391,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)throws_handleEnvelope:(SSKProtoEnvelope *)envelope
                 plaintextData:(NSData *)plaintextData
               wasReceivedByUD:(BOOL)wasReceivedByUD
-                  transaction:(YapDatabaseReadWriteTransaction *)transaction
+                  transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -382,8 +409,12 @@ NS_ASSUME_NONNULL_BEGIN
         OWSFailDebug(@"Invalid timestamp.");
         return;
     }
-    if (envelope.source.length < 1) {
-        OWSFailDebug(@"Missing source.");
+    if (![SDS fitsInInt64:envelope.timestamp]) {
+        OWSFailDebug(@"Invalid timestamp.");
+        return;
+    }
+    if (!envelope.hasValidSource) {
+        OWSFailDebug(@"Invalid source.");
         return;
     }
     if (envelope.sourceDevice < 1) {
@@ -391,10 +422,11 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
-    BOOL duplicateEnvelope = [self.incomingMessageFinder existsMessageWithTimestamp:envelope.timestamp
-                                                                           sourceId:envelope.source
-                                                                     sourceDeviceId:envelope.sourceDevice
-                                                                        transaction:transaction];
+    BOOL duplicateEnvelope = [InteractionFinder existsIncomingMessageWithTimestamp:envelope.timestamp
+                                                                           address:envelope.sourceAddress
+                                                                    sourceDeviceId:envelope.sourceDevice
+                                                                       transaction:transaction];
+
     if (duplicateEnvelope) {
         OWSLogInfo(@"Ignoring previously received envelope from %@ with timestamp: %llu",
             envelopeAddress(envelope),
@@ -423,7 +455,7 @@ NS_ASSUME_NONNULL_BEGIN
                          wasReceivedByUD:wasReceivedByUD
                              transaction:transaction];
         } else if (contentProto.callMessage) {
-            [self handleIncomingEnvelope:envelope withCallMessage:contentProto.callMessage];
+            [self handleIncomingEnvelope:envelope withCallMessage:contentProto.callMessage transaction:transaction];
         } else if (contentProto.typingMessage) {
             [self handleIncomingEnvelope:envelope withTypingMessage:contentProto.typingMessage transaction:transaction];
         } else if (contentProto.nullMessage) {
@@ -456,7 +488,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)handleIncomingEnvelope:(SSKProtoEnvelope *)envelope
                withDataMessage:(SSKProtoDataMessage *)dataMessage
                wasReceivedByUD:(BOOL)wasReceivedByUD
-                   transaction:(YapDatabaseReadWriteTransaction *)transaction
+                   transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -472,7 +504,8 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     if ([self isDataMessageBlocked:dataMessage envelope:envelope]) {
-        NSString *logMessage = [NSString stringWithFormat:@"Ignoring blocked message from sender: %@", envelope.source];
+        NSString *logMessage =
+            [NSString stringWithFormat:@"Ignoring blocked message from sender: %@", envelope.sourceAddress];
         if (dataMessage.group) {
             logMessage = [logMessage stringByAppendingFormat:@" in group: %@", dataMessage.group.id];
         }
@@ -482,13 +515,17 @@ NS_ASSUME_NONNULL_BEGIN
 
     if (dataMessage.hasTimestamp) {
         if (dataMessage.timestamp <= 0) {
-            OWSFailDebug(@"Ignoring message with invalid data message timestamp: %@", envelope.source);
+            OWSFailDebug(@"Ignoring message with invalid data message timestamp: %@", envelope.sourceAddress);
             // TODO: Add analytics.
+            return;
+        }
+        if (![SDS fitsInInt64:dataMessage.timestamp]) {
+            OWSFailDebug(@"Invalid timestamp.");
             return;
         }
         // This prevents replay attacks by the service.
         if (dataMessage.timestamp != envelope.timestamp) {
-            OWSFailDebug(@"Ignoring message with non-matching data message timestamp: %@", envelope.source);
+            OWSFailDebug(@"Ignoring message with non-matching data message timestamp: %@", envelope.sourceAddress);
             // TODO: Add analytics.
             return;
         }
@@ -496,12 +533,12 @@ NS_ASSUME_NONNULL_BEGIN
 
     if ([dataMessage hasProfileKey]) {
         NSData *profileKey = [dataMessage profileKey];
-        NSString *recipientId = envelope.source;
+        SignalServiceAddress *address = envelope.sourceAddress;
         if (profileKey.length == kAES256_KeyByteLength) {
-            [self.profileManager setProfileKeyData:profileKey forRecipientId:recipientId];
+            [self.profileManager setProfileKeyData:profileKey forAddress:address transaction:transaction];
         } else {
             OWSFailDebug(
-                @"Unexpected profile key length:%lu on message from:%@", (unsigned long)profileKey.length, recipientId);
+                @"Unexpected profile key length:%lu on message from:%@", (unsigned long)profileKey.length, address);
         }
     }
 
@@ -509,8 +546,12 @@ NS_ASSUME_NONNULL_BEGIN
         TSGroupThread *_Nullable groupThread =
             [TSGroupThread threadWithGroupId:dataMessage.group.id transaction:transaction];
 
+        if (!dataMessage.group.hasType) {
+            OWSFailDebug(@"Group message is missing type.");
+            return;
+        }
         if (groupThread) {
-            if (dataMessage.group.type != SSKProtoGroupContextTypeUpdate) {
+            if (dataMessage.group.unwrappedType != SSKProtoGroupContextTypeUpdate) {
                 if (!groupThread.isLocalUserInGroup) {
                     OWSLogInfo(@"Ignoring messages for left group.");
                     return;
@@ -518,13 +559,13 @@ NS_ASSUME_NONNULL_BEGIN
             }
         } else {
             // Unknown group.
-            if (dataMessage.group.type == SSKProtoGroupContextTypeUpdate) {
+            if (dataMessage.group.unwrappedType == SSKProtoGroupContextTypeUpdate) {
                 // Accept group updates for unknown groups.
-            } else if (dataMessage.group.type == SSKProtoGroupContextTypeDeliver) {
+            } else if (dataMessage.group.unwrappedType == SSKProtoGroupContextTypeDeliver) {
                 [self sendGroupInfoRequest:dataMessage.group.id envelope:envelope transaction:transaction];
                 return;
             } else {
-                OWSLogInfo(@"Ignoring group message for unknown group from: %@", envelope.source);
+                OWSLogInfo(@"Ignoring group message for unknown group from: %@", envelope.sourceAddress);
                 return;
             }
         }
@@ -535,7 +576,7 @@ NS_ASSUME_NONNULL_BEGIN
     } else if ((dataMessage.flags & SSKProtoDataMessageFlagsExpirationTimerUpdate) != 0) {
         [self handleExpirationTimerUpdateMessageWithEnvelope:envelope dataMessage:dataMessage transaction:transaction];
     } else if ((dataMessage.flags & SSKProtoDataMessageFlagsProfileKeyUpdate) != 0) {
-        [self handleProfileKeyMessageWithEnvelope:envelope dataMessage:dataMessage];
+        [self handleProfileKeyMessageWithEnvelope:envelope dataMessage:dataMessage transaction:transaction];
     } else if (dataMessage.attachments.count > 0) {
         [self handleReceivedMediaWithEnvelope:envelope
                                   dataMessage:dataMessage
@@ -561,7 +602,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)sendGroupInfoRequest:(NSData *)groupId
                     envelope:(SSKProtoEnvelope *)envelope
-                 transaction:(YapDatabaseReadWriteTransaction *)transaction
+                 transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -579,19 +620,18 @@ NS_ASSUME_NONNULL_BEGIN
     // FIXME: https://github.com/signalapp/Signal-iOS/issues/1340
     OWSLogInfo(@"Sending group info request: %@", envelopeAddress(envelope));
 
-    NSString *recipientId = envelope.source;
-
-    TSThread *thread = [TSContactThread getOrCreateThreadWithContactId:recipientId transaction:transaction];
+    TSThread *thread = [TSContactThread getOrCreateThreadWithContactAddress:envelope.sourceAddress
+                                                                transaction:transaction];
 
     OWSSyncGroupsRequestMessage *syncGroupsRequestMessage =
         [[OWSSyncGroupsRequestMessage alloc] initWithThread:thread groupId:groupId];
 
-    [self.messageSenderJobQueue addMessage:syncGroupsRequestMessage transaction:transaction];
+    [self.messageSenderJobQueue addMessage:syncGroupsRequestMessage.asPreparer transaction:transaction];
 }
 
 - (void)handleIncomingEnvelope:(SSKProtoEnvelope *)envelope
             withReceiptMessage:(SSKProtoReceiptMessage *)receiptMessage
-                   transaction:(YapDatabaseReadWriteTransaction *)transaction
+                   transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -605,31 +645,42 @@ NS_ASSUME_NONNULL_BEGIN
         OWSFail(@"Missing transaction.");
         return;
     }
+    if (!receiptMessage.hasType) {
+        OWSFail(@"Missing type.");
+        return;
+    }
 
     NSArray<NSNumber *> *sentTimestamps = receiptMessage.timestamp;
+    for (NSNumber *sentTimestamp in sentTimestamps) {
+        if (![SDS fitsInInt64:sentTimestamp.unsignedLongLongValue]) {
+            OWSFailDebug(@"Invalid timestamp.");
+            return;
+        }
+    }
 
-    switch (receiptMessage.type) {
+    switch (receiptMessage.unwrappedType) {
         case SSKProtoReceiptMessageTypeDelivery:
             OWSLogVerbose(@"Processing receipt message with delivery receipts.");
-            [self processDeliveryReceiptsFromRecipientId:envelope.source
-                                          sentTimestamps:sentTimestamps
-                                       deliveryTimestamp:@(envelope.timestamp)
-                                             transaction:transaction];
+            [self processDeliveryReceiptsFromRecipient:envelope.sourceAddress
+                                        sentTimestamps:sentTimestamps
+                                     deliveryTimestamp:@(envelope.timestamp)
+                                           transaction:transaction];
             return;
         case SSKProtoReceiptMessageTypeRead:
             OWSLogVerbose(@"Processing receipt message with read receipts.");
-            [OWSReadReceiptManager.sharedManager processReadReceiptsFromRecipientId:envelope.source
-                                                                     sentTimestamps:sentTimestamps
-                                                                      readTimestamp:envelope.timestamp];
+            [OWSReadReceiptManager.sharedManager processReadReceiptsFromRecipient:envelope.sourceAddress
+                                                                   sentTimestamps:sentTimestamps
+                                                                    readTimestamp:envelope.timestamp];
             break;
         default:
-            OWSLogInfo(@"Ignoring receipt message of unknown type: %d.", (int)receiptMessage.type);
+            OWSLogInfo(@"Ignoring receipt message of unknown type: %d.", (int)receiptMessage.unwrappedType);
             return;
     }
 }
 
 - (void)handleIncomingEnvelope:(SSKProtoEnvelope *)envelope
                withCallMessage:(SSKProtoCallMessage *)callMessage
+                   transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -640,10 +691,15 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
+    if ([self isEnvelopeSenderBlocked:envelope]) {
+        OWSFailDebug(@"envelope sender is blocked. Shouldn't have gotten this far.");
+        return;
+    }
+
     if ([callMessage hasProfileKey]) {
         NSData *profileKey = [callMessage profileKey];
-        NSString *recipientId = envelope.source;
-        [self.profileManager setProfileKeyData:profileKey forRecipientId:recipientId];
+        SignalServiceAddress *address = envelope.sourceAddress;
+        [self.profileManager setProfileKeyData:profileKey forAddress:address transaction:transaction];
     }
 
     // By dispatching async, we introduce the possibility that these messages might be lost
@@ -651,18 +707,18 @@ NS_ASSUME_NONNULL_BEGIN
     // definition will end if the app exits.
     dispatch_async(dispatch_get_main_queue(), ^{
         if (callMessage.offer) {
-            [self.callMessageHandler receivedOffer:callMessage.offer fromCallerId:envelope.source];
+            [self.callMessageHandler receivedOffer:callMessage.offer fromCaller:envelope.sourceAddress];
         } else if (callMessage.answer) {
-            [self.callMessageHandler receivedAnswer:callMessage.answer fromCallerId:envelope.source];
+            [self.callMessageHandler receivedAnswer:callMessage.answer fromCaller:envelope.sourceAddress];
         } else if (callMessage.iceUpdate.count > 0) {
             for (SSKProtoCallMessageIceUpdate *iceUpdate in callMessage.iceUpdate) {
-                [self.callMessageHandler receivedIceUpdate:iceUpdate fromCallerId:envelope.source];
+                [self.callMessageHandler receivedIceUpdate:iceUpdate fromCaller:envelope.sourceAddress];
             }
         } else if (callMessage.hangup) {
             OWSLogVerbose(@"Received CallMessage with Hangup.");
-            [self.callMessageHandler receivedHangup:callMessage.hangup fromCallerId:envelope.source];
+            [self.callMessageHandler receivedHangup:callMessage.hangup fromCaller:envelope.sourceAddress];
         } else if (callMessage.busy) {
-            [self.callMessageHandler receivedBusy:callMessage.busy fromCallerId:envelope.source];
+            [self.callMessageHandler receivedBusy:callMessage.busy fromCaller:envelope.sourceAddress];
         } else {
             OWSProdInfoWEnvelope([OWSAnalyticsEvents messageManagerErrorCallMessageNoActionablePayload], envelope);
         }
@@ -671,7 +727,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)handleIncomingEnvelope:(SSKProtoEnvelope *)envelope
              withTypingMessage:(SSKProtoTypingMessage *)typingMessage
-                   transaction:(YapDatabaseReadWriteTransaction *)transaction
+                   transaction:(SDSAnyWriteTransaction *)transaction
 {
     OWSAssertDebug(transaction);
 
@@ -687,13 +743,13 @@ NS_ASSUME_NONNULL_BEGIN
         OWSFailDebug(@"typingMessage has invalid timestamp.");
         return;
     }
-    NSString *localNumber = self.tsAccountManager.localNumber;
-    if ([localNumber isEqualToString:envelope.source]) {
+    if (envelope.sourceAddress.isLocalAddress) {
         OWSLogVerbose(@"Ignoring typing indicators from self or linked device.");
         return;
-    } else if ([self.blockingManager isRecipientIdBlocked:envelope.source]
+    } else if ([self.blockingManager isAddressBlocked:envelope.sourceAddress]
         || (typingMessage.hasGroupID && [self.blockingManager isGroupIdBlocked:typingMessage.groupID])) {
-        NSString *logMessage = [NSString stringWithFormat:@"Ignoring blocked message from sender: %@", envelope.source];
+        NSString *logMessage =
+            [NSString stringWithFormat:@"Ignoring blocked message from sender: %@", envelope.sourceAddress];
         if (typingMessage.hasGroupID) {
             logMessage = [logMessage stringByAppendingFormat:@" in group: %@", typingMessage.groupID];
         }
@@ -712,7 +768,7 @@ NS_ASSUME_NONNULL_BEGIN
 
         thread = groupThread;
     } else {
-        thread = [TSContactThread getThreadWithContactId:envelope.source transaction:transaction];
+        thread = [TSContactThread getThreadWithContactAddress:envelope.sourceAddress transaction:transaction];
     }
 
     if (!thread) {
@@ -723,15 +779,19 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        switch (typingMessage.action) {
+        if (!typingMessage.hasAction) {
+            OWSFailDebug(@"Type message is missing action.");
+            return;
+        }
+        switch (typingMessage.unwrappedAction) {
             case SSKProtoTypingMessageActionStarted:
                 [self.typingIndicators didReceiveTypingStartedMessageInThread:thread
-                                                                  recipientId:envelope.source
+                                                                      address:envelope.sourceAddress
                                                                      deviceId:envelope.sourceDevice];
                 break;
             case SSKProtoTypingMessageActionStopped:
                 [self.typingIndicators didReceiveTypingStoppedMessageInThread:thread
-                                                                  recipientId:envelope.source
+                                                                      address:envelope.sourceAddress
                                                                      deviceId:envelope.sourceDevice];
                 break;
             default:
@@ -743,7 +803,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)handleReceivedGroupAvatarUpdateWithEnvelope:(SSKProtoEnvelope *)envelope
                                         dataMessage:(SSKProtoDataMessage *)dataMessage
-                                        transaction:(YapDatabaseReadWriteTransaction *)transaction
+                                        transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -772,23 +832,46 @@ NS_ASSUME_NONNULL_BEGIN
         OWSLogWarn(@"received unsupported group avatar envelope");
         return;
     }
+
+    [avatarPointer anyInsertWithTransaction:transaction];
+
     [self.attachmentDownloads downloadAttachmentPointer:avatarPointer
+        message:nil
         success:^(NSArray<TSAttachmentStream *> *attachmentStreams) {
             OWSAssertDebug(attachmentStreams.count == 1);
             TSAttachmentStream *attachmentStream = attachmentStreams.firstObject;
-            [groupThread updateAvatarWithAttachmentStream:attachmentStream];
+
+            [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+                [groupThread updateAvatarWithAttachmentStream:attachmentStream transaction:transaction];
+
+                // Eagerly clean up the attachment.
+                [attachmentStream anyRemoveWithTransaction:transaction];
+            }];
         }
         failure:^(NSError *error) {
             OWSLogError(@"failed to fetch attachments for group avatar sent at: %llu. with error: %@",
                 envelope.timestamp,
                 error);
+
+            [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+                // Eagerly clean up the attachment.
+                TSAttachment *_Nullable attachment =
+                    [TSAttachment anyFetchWithUniqueId:avatarPointer.uniqueId transaction:transaction];
+                if (attachment == nil) {
+                    // In the test case, database storage may be reset by the
+                    // time the pointer download fails.
+                    OWSFailDebugUnlessRunningTests(@"Could not load attachment.");
+                    return;
+                }
+                [attachment anyRemoveWithTransaction:transaction];
+            }];
         }];
 }
 
 - (void)handleReceivedMediaWithEnvelope:(SSKProtoEnvelope *)envelope
                             dataMessage:(SSKProtoDataMessage *)dataMessage
                         wasReceivedByUD:(BOOL)wasReceivedByUD
-                            transaction:(YapDatabaseReadWriteTransaction *)transaction
+                            transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -818,11 +901,11 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
-    [message saveWithTransaction:transaction];
+    OWSAssertDebug([TSMessage anyFetchWithUniqueId:message.uniqueId transaction:transaction] != nil);
 
     OWSLogDebug(@"incoming attachment message: %@", message.debugDescription);
 
-    [self.attachmentDownloads downloadAttachmentsForMessage:message
+    [self.attachmentDownloads downloadBodyAttachmentsForMessage:message
         transaction:transaction
         success:^(NSArray<TSAttachmentStream *> *attachmentStreams) {
             OWSLogDebug(@"successfully fetched attachments: %lu for message: %@",
@@ -836,7 +919,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)throws_handleIncomingEnvelope:(SSKProtoEnvelope *)envelope
                       withSyncMessage:(SSKProtoSyncMessage *)syncMessage
-                          transaction:(YapDatabaseReadWriteTransaction *)transaction
+                          transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -851,28 +934,31 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
-    NSString *localNumber = self.tsAccountManager.localNumber;
-    if (![localNumber isEqualToString:envelope.source]) {
+    if (!envelope.sourceAddress.isLocalAddress) {
         // Sync messages should only come from linked devices.
         OWSProdErrorWEnvelope([OWSAnalyticsEvents messageManagerErrorSyncMessageFromUnknownSource], envelope);
         return;
     }
 
     if (syncMessage.sent) {
+        if (![SDS fitsInInt64:syncMessage.sent.timestamp]) {
+            OWSFailDebug(@"Invalid timestamp.");
+            return;
+        }
+        if (![SDS fitsInInt64:syncMessage.sent.expirationStartTimestamp]) {
+            OWSFailDebug(@"Invalid expirationStartTimestamp.");
+            return;
+        }
         OWSIncomingSentMessageTranscript *transcript =
-            [[OWSIncomingSentMessageTranscript alloc] initWithProto:syncMessage.sent
-                                                        transaction:transaction];
-
-        OWSRecordTranscriptJob *recordJob =
-            [[OWSRecordTranscriptJob alloc] initWithIncomingSentMessageTranscript:transcript];
+            [[OWSIncomingSentMessageTranscript alloc] initWithProto:syncMessage.sent transaction:transaction];
 
         SSKProtoDataMessage *_Nullable dataMessage = syncMessage.sent.message;
         if (!dataMessage) {
             OWSFailDebug(@"Missing dataMessage.");
             return;
         }
-        NSString *destination = syncMessage.sent.destination;
-        if (dataMessage && destination.length > 0 && dataMessage.hasProfileKey) {
+        SignalServiceAddress *destination = syncMessage.sent.destinationAddress;
+        if (dataMessage && destination.isValid && dataMessage.hasProfileKey) {
             // If we observe a linked device sending our profile key to another
             // user, we can infer that that user belongs in our profile whitelist.
             if (dataMessage.group) {
@@ -882,33 +968,41 @@ NS_ASSUME_NONNULL_BEGIN
             }
         }
 
-        if ([self isDataMessageGroupAvatarUpdate:syncMessage.sent.message]) {
-            [recordJob
-                runWithAttachmentHandler:^(NSArray<TSAttachmentStream *> *attachmentStreams) {
-                    OWSAssertDebug(attachmentStreams.count == 1);
-                    TSAttachmentStream *attachmentStream = attachmentStreams.firstObject;
-                    [self.dbConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
-                        TSGroupThread *_Nullable groupThread =
-                            [TSGroupThread threadWithGroupId:dataMessage.group.id transaction:transaction];
-                        if (!groupThread) {
-                            OWSFailDebug(@"ignoring sync group avatar update for unknown group.");
-                            return;
-                        }
+        if ([self isDataMessageGroupAvatarUpdate:syncMessage.sent.message] && !syncMessage.sent.isRecipientUpdate) {
+            [OWSRecordTranscriptJob
+                processIncomingSentMessageTranscript:transcript
+                                   attachmentHandler:^(NSArray<TSAttachmentStream *> *attachmentStreams) {
+                                       OWSAssertDebug(attachmentStreams.count == 1);
+                                       TSAttachmentStream *attachmentStream = attachmentStreams.firstObject;
+                                       [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+                                           TSGroupThread *_Nullable groupThread =
+                                               [TSGroupThread threadWithGroupId:dataMessage.group.id
+                                                                    transaction:transaction];
+                                           if (!groupThread) {
+                                               OWSFailDebug(@"ignoring sync group avatar update for unknown group.");
+                                               return;
+                                           }
 
-                        [groupThread updateAvatarWithAttachmentStream:attachmentStream transaction:transaction];
-                    }];
-                }
-                             transaction:transaction];
+                                           [groupThread updateAvatarWithAttachmentStream:attachmentStream
+                                                                             transaction:transaction];
+                                       }];
+                                   }
+                                         transaction:transaction];
         } else {
-            [recordJob
-                runWithAttachmentHandler:^(NSArray<TSAttachmentStream *> *attachmentStreams) {
-                    OWSLogDebug(
-                        @"successfully fetched transcript attachments: %lu", (unsigned long)attachmentStreams.count);
-                }
-                             transaction:transaction];
+            [OWSRecordTranscriptJob
+                processIncomingSentMessageTranscript:transcript
+                                   attachmentHandler:^(NSArray<TSAttachmentStream *> *attachmentStreams) {
+                                       OWSLogDebug(@"successfully fetched transcript attachments: %lu",
+                                           (unsigned long)attachmentStreams.count);
+                                   }
+                                         transaction:transaction];
         }
     } else if (syncMessage.request) {
-        if (syncMessage.request.type == SSKProtoSyncMessageRequestTypeContacts) {
+        if (!syncMessage.request.hasType) {
+            OWSFailDebug(@"Ignoring sync request without type.");
+            return;
+        }
+        if (syncMessage.request.unwrappedType == SSKProtoSyncMessageRequestTypeContacts) {
             // We respond asynchronously because populating the sync message will
             // create transactions and it's not practical (due to locking in the OWSIdentityManager)
             // to plumb our transaction through.
@@ -918,26 +1012,16 @@ NS_ASSUME_NONNULL_BEGIN
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                 [[self.syncManager syncAllContacts] retainUntilComplete];
             });
-        } else if (syncMessage.request.type == SSKProtoSyncMessageRequestTypeGroups) {
-            OWSSyncGroupsMessage *syncGroupsMessage = [[OWSSyncGroupsMessage alloc] init];
-            NSData *_Nullable syncData = [syncGroupsMessage buildPlainTextAttachmentDataWithTransaction:transaction];
-            if (!syncData) {
-                OWSFailDebug(@"Failed to serialize groups sync message.");
-                return;
-            }
-            DataSource *dataSource = [DataSourceValue dataSourceWithSyncMessageData:syncData];
-            [self.messageSenderJobQueue addMediaMessage:syncGroupsMessage
-                                             dataSource:dataSource
-                                            contentType:OWSMimeTypeApplicationOctetStream
-                                         sourceFilename:nil
-                                                caption:nil
-                                         albumMessageId:nil
-                                  isTemporaryAttachment:YES];
-        } else if (syncMessage.request.type == SSKProtoSyncMessageRequestTypeBlocked) {
+        } else if (syncMessage.request.unwrappedType == SSKProtoSyncMessageRequestTypeGroups) {
+            [self.syncManager syncGroupsWithTransaction:transaction];
+        } else if (syncMessage.request.unwrappedType == SSKProtoSyncMessageRequestTypeBlocked) {
             OWSLogInfo(@"Received request for block list");
             [self.blockingManager syncBlockList];
-        } else if (syncMessage.request.type == SSKProtoSyncMessageRequestTypeConfiguration) {
+        } else if (syncMessage.request.unwrappedType == SSKProtoSyncMessageRequestTypeConfiguration) {
             [SSKEnvironment.shared.syncManager sendConfigurationSyncMessage];
+
+            // We send _two_ responses to the "configuration request".
+            [StickerManager syncAllInstalledPacksWithTransaction:transaction];
         } else {
             OWSLogWarn(@"ignoring unsupported sync request message");
         }
@@ -952,8 +1036,18 @@ NS_ASSUME_NONNULL_BEGIN
                                                                    readTimestamp:envelope.timestamp
                                                                      transaction:transaction];
     } else if (syncMessage.verified) {
-        OWSLogInfo(@"Received verification state for %@", syncMessage.verified.destination);
+        OWSLogInfo(@"Received verification state for %@", syncMessage.verified.destinationAddress);
         [self.identityManager throws_processIncomingSyncMessage:syncMessage.verified transaction:transaction];
+    } else if (syncMessage.stickerPackOperation.count > 0) {
+        OWSLogInfo(@"Received sticker pack operation(s): %d", (int)syncMessage.stickerPackOperation.count);
+        for (SSKProtoSyncMessageStickerPackOperation *packOperationProto in syncMessage.stickerPackOperation) {
+            [StickerManager processIncomingStickerPackOperation:packOperationProto transaction:transaction];
+        }
+    } else if (syncMessage.viewOnceOpen != nil) {
+        OWSLogInfo(@"Received view-once read receipt sync message");
+        [ViewOnceMessages processIncomingSyncMessage:syncMessage.viewOnceOpen
+                                            envelope:envelope
+                                         transaction:transaction];
     } else {
         OWSLogWarn(@"Ignoring unsupported sync message.");
     }
@@ -961,7 +1055,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)handleEndSessionMessageWithEnvelope:(SSKProtoEnvelope *)envelope
                                 dataMessage:(SSKProtoDataMessage *)dataMessage
-                                transaction:(YapDatabaseReadWriteTransaction *)transaction
+                                transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -976,19 +1070,20 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
-    TSContactThread *thread = [TSContactThread getOrCreateThreadWithContactId:envelope.source transaction:transaction];
+    TSContactThread *thread = [TSContactThread getOrCreateThreadWithContactAddress:envelope.sourceAddress
+                                                                       transaction:transaction];
 
     // MJK TODO - safe to remove senderTimestamp
     [[[TSInfoMessage alloc] initWithTimestamp:[NSDate ows_millisecondTimeStamp]
                                      inThread:thread
-                                  messageType:TSInfoMessageTypeSessionDidEnd] saveWithTransaction:transaction];
+                                  messageType:TSInfoMessageTypeSessionDidEnd] anyInsertWithTransaction:transaction];
 
-    [self.primaryStorage deleteAllSessionsForContact:envelope.source protocolContext:transaction];
+    [self.sessionStore deleteAllSessionsForAddress:envelope.sourceAddress transaction:transaction];
 }
 
 - (void)handleExpirationTimerUpdateMessageWithEnvelope:(SSKProtoEnvelope *)envelope
                                            dataMessage:(SSKProtoDataMessage *)dataMessage
-                                           transaction:(YapDatabaseReadWriteTransaction *)transaction
+                                           transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -1009,24 +1104,28 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
-    OWSDisappearingMessagesConfiguration *disappearingMessagesConfiguration;
+    OWSDisappearingMessagesConfiguration *disappearingMessagesConfiguration =
+        [OWSDisappearingMessagesConfiguration fetchOrBuildDefaultWithThread:thread transaction:transaction];
     if (dataMessage.hasExpireTimer && dataMessage.expireTimer > 0) {
         OWSLogInfo(
             @"Expiring messages duration turned to %u for thread %@", (unsigned int)dataMessage.expireTimer, thread);
         disappearingMessagesConfiguration =
-            [[OWSDisappearingMessagesConfiguration alloc] initWithThreadId:thread.uniqueId
-                                                                   enabled:YES
-                                                           durationSeconds:dataMessage.expireTimer];
+            [disappearingMessagesConfiguration copyAsEnabledWithDurationSeconds:dataMessage.expireTimer];
     } else {
         OWSLogInfo(@"Expiring messages have been turned off for thread %@", thread);
-        disappearingMessagesConfiguration = [[OWSDisappearingMessagesConfiguration alloc]
-            initWithThreadId:thread.uniqueId
-                     enabled:NO
-             durationSeconds:OWSDisappearingMessagesConfigurationDefaultExpirationDuration];
+        disappearingMessagesConfiguration = [disappearingMessagesConfiguration copyWithIsEnabled:NO];
     }
     OWSAssertDebug(disappearingMessagesConfiguration);
-    [disappearingMessagesConfiguration saveWithTransaction:transaction];
-    NSString *name = [self.contactsManager displayNameForPhoneIdentifier:envelope.source transaction:transaction];
+
+    // NOTE: We always update the configuration here, even if it hasn't changed
+    //       to leave an audit trail.
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    [disappearingMessagesConfiguration anyUpsertWithTransaction:transaction];
+#pragma clang diagnostic pop
+
+    NSString *name = [self.contactsManager displayNameForAddress:envelope.sourceAddress transaction:transaction];
 
     // MJK TODO - safe to remove senderTimestamp
     OWSDisappearingConfigurationUpdateInfoMessage *message =
@@ -1035,11 +1134,12 @@ NS_ASSUME_NONNULL_BEGIN
                                                                    configuration:disappearingMessagesConfiguration
                                                              createdByRemoteName:name
                                                           createdInExistingGroup:NO];
-    [message saveWithTransaction:transaction];
+    [message anyInsertWithTransaction:transaction];
 }
 
 - (void)handleProfileKeyMessageWithEnvelope:(SSKProtoEnvelope *)envelope
                                 dataMessage:(SSKProtoDataMessage *)dataMessage
+                                transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -1050,7 +1150,7 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
-    NSString *recipientId = envelope.source;
+    SignalServiceAddress *address = envelope.sourceAddress;
     if (!dataMessage.hasProfileKey) {
         OWSFailDebug(@"received profile key message without profile key from: %@", envelopeAddress(envelope));
         return;
@@ -1064,13 +1164,13 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     id<ProfileManagerProtocol> profileManager = SSKEnvironment.shared.profileManager;
-    [profileManager setProfileKeyData:profileKey forRecipientId:recipientId];
+    [profileManager setProfileKeyData:profileKey forAddress:address transaction:transaction];
 }
 
 - (void)handleReceivedTextMessageWithEnvelope:(SSKProtoEnvelope *)envelope
                                   dataMessage:(SSKProtoDataMessage *)dataMessage
                               wasReceivedByUD:(BOOL)wasReceivedByUD
-                                  transaction:(YapDatabaseReadWriteTransaction *)transaction
+                                  transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -1093,7 +1193,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)handleGroupInfoRequest:(SSKProtoEnvelope *)envelope
                    dataMessage:(SSKProtoDataMessage *)dataMessage
-                   transaction:(YapDatabaseReadWriteTransaction *)transaction
+                   transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -1107,7 +1207,11 @@ NS_ASSUME_NONNULL_BEGIN
         OWSFail(@"Missing transaction.");
         return;
     }
-    if (dataMessage.group.type != SSKProtoGroupContextTypeRequestInfo) {
+    if (!dataMessage.group.hasType) {
+        OWSFailDebug(@"Missing group message type.");
+        return;
+    }
+    if (dataMessage.group.unwrappedType != SSKProtoGroupContextTypeRequestInfo) {
         OWSFailDebug(@"Unexpected group message type.");
         return;
     }
@@ -1118,7 +1222,7 @@ NS_ASSUME_NONNULL_BEGIN
         return;
     }
 
-    OWSLogInfo(@"Received 'Request Group Info' message for group: %@ from: %@", groupId, envelope.source);
+    OWSLogInfo(@"Received 'Request Group Info' message for group: %@ from: %@", groupId, envelope.sourceAddress);
 
     TSGroupThread *_Nullable gThread = [TSGroupThread threadWithGroupId:dataMessage.group.id transaction:transaction];
     if (!gThread) {
@@ -1127,10 +1231,10 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     // Ensure sender is in the group.
-    if (![gThread.groupModel.groupMemberIds containsObject:envelope.source]) {
+    if (![gThread.groupModel.groupMembers containsObject:envelope.sourceAddress]) {
         OWSLogWarn(@"Ignoring 'Request Group Info' message for non-member of group. %@ not in %@",
-            envelope.source,
-            gThread.groupModel.groupMemberIds);
+            envelope.sourceAddress,
+            gThread.groupModel.groupMembers);
         return;
     }
 
@@ -1150,30 +1254,34 @@ NS_ASSUME_NONNULL_BEGIN
 
     [message updateWithCustomMessage:updateGroupInfo transaction:transaction];
     // Only send this group update to the requester.
-    [message updateWithSendingToSingleGroupRecipient:envelope.source transaction:transaction];
+    [message updateWithSendingToSingleGroupRecipient:envelope.sourceAddress transaction:transaction];
 
-    if (gThread.groupModel.groupImage) {
-        NSData *_Nullable data = UIImagePNGRepresentation(gThread.groupModel.groupImage);
-        OWSAssertDebug(data);
-        if (data) {
-            DataSource *_Nullable dataSource = [DataSourceValue dataSourceWithData:data fileExtension:@"png"];
-            [self.messageSenderJobQueue addMediaMessage:message
-                                             dataSource:dataSource
-                                            contentType:OWSMimeTypeImagePng
-                                         sourceFilename:nil
-                                                caption:nil
-                                         albumMessageId:nil
-                                  isTemporaryAttachment:YES];
-        }
+    NSData *_Nullable groupAvatarData;
+    if (gThread.groupModel.groupAvatarData) {
+        groupAvatarData = gThread.groupModel.groupAvatarData;
+        OWSAssertDebug(groupAvatarData.length > 0);
+    }
+    _Nullable id<DataSource> groupAvatarDataSource;
+    if (groupAvatarData.length > 0) {
+        groupAvatarDataSource = [DataSourceValue dataSourceWithData:groupAvatarData fileExtension:@"png"];
+    }
+    if (groupAvatarDataSource != nil) {
+        [self.messageSenderJobQueue addMediaMessage:message
+                                         dataSource:groupAvatarDataSource
+                                        contentType:OWSMimeTypeImagePng
+                                     sourceFilename:nil
+                                            caption:nil
+                                     albumMessageId:nil
+                              isTemporaryAttachment:YES];
     } else {
-        [self.messageSenderJobQueue addMessage:message transaction:transaction];
+        [self.messageSenderJobQueue addMessage:message.asPreparer transaction:transaction];
     }
 }
 
 - (TSIncomingMessage *_Nullable)handleReceivedEnvelope:(SSKProtoEnvelope *)envelope
                                        withDataMessage:(SSKProtoDataMessage *)dataMessage
                                        wasReceivedByUD:(BOOL)wasReceivedByUD
-                                           transaction:(YapDatabaseReadWriteTransaction *)transaction
+                                           transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -1189,20 +1297,24 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     uint64_t timestamp = envelope.timestamp;
-    NSString *body = dataMessage.body;
     NSData *groupId = dataMessage.group ? dataMessage.group.id : nil;
-    OWSContact *_Nullable contact = [OWSContacts contactForDataMessage:dataMessage transaction:transaction];
-    NSNumber *_Nullable serverTimestamp = (envelope.hasServerTimestamp ? @(envelope.serverTimestamp) : nil);
-
-    if (dataMessage.group.type == SSKProtoGroupContextTypeRequestInfo) {
-        [self handleGroupInfoRequest:envelope dataMessage:dataMessage transaction:transaction];
-        return nil;
-    }
 
     if (groupId.length > 0) {
-        NSMutableSet *newMemberIds = [NSMutableSet setWithArray:dataMessage.group.members];
-        for (NSString *recipientId in newMemberIds) {
-            if (!recipientId.isValidE164) {
+        if (!dataMessage.group.hasType) {
+            OWSFailDebug(@"Missing group message type.");
+            return nil;
+        }
+
+        if (dataMessage.group.unwrappedType == SSKProtoGroupContextTypeRequestInfo) {
+            [self handleGroupInfoRequest:envelope dataMessage:dataMessage transaction:transaction];
+            return nil;
+        }
+
+        NSMutableSet<SignalServiceAddress *> *newMembers =
+            [NSMutableSet setWithArray:dataMessage.group.memberAddresses];
+
+        for (SignalServiceAddress *address in newMembers) {
+            if (!address.isValid) {
                 OWSLogVerbose(
                     @"incoming group update has invalid group member: %@", [self descriptionForEnvelope:envelope]);
                 OWSFailDebug(@"incoming group update has invalid group member");
@@ -1218,27 +1330,39 @@ NS_ASSUME_NONNULL_BEGIN
             // Don't trust other clients; ensure all known group members remain in the
             // group unless it is a "quit" message in which case we should only remove
             // the quiting member below.
-            [newMemberIds addObjectsFromArray:oldGroupThread.groupModel.groupMemberIds];
+            [newMembers addObjectsFromArray:oldGroupThread.groupModel.groupMembers];
         }
 
-        switch (dataMessage.group.type) {
+        if (dataMessage.hasRequiredProtocolVersion
+            && dataMessage.requiredProtocolVersion > SSKProtos.currentProtocolVersion) {
+            [self insertUnknownProtocolVersionErrorInThread:oldGroupThread
+                                            protocolVersion:dataMessage.requiredProtocolVersion
+                                                     sender:envelope.sourceAddress
+                                                transaction:transaction];
+            return nil;
+        }
+
+        switch (dataMessage.group.unwrappedType) {
             case SSKProtoGroupContextTypeUpdate: {
                 // Ensures that the thread exists but doesn't update it.
                 TSGroupThread *newGroupThread =
                     [TSGroupThread getOrCreateThreadWithGroupId:groupId transaction:transaction];
 
-                TSGroupModel *newGroupModel = [[TSGroupModel alloc] initWithTitle:dataMessage.group.name
-                                                                        memberIds:newMemberIds.allObjects
-                                                                            image:oldGroupThread.groupModel.groupImage
-                                                                          groupId:dataMessage.group.id];
+                TSGroupModel *newGroupModel =
+                    [[TSGroupModel alloc] initWithTitle:dataMessage.group.name
+                                                members:newMembers.allObjects
+                                        groupAvatarData:oldGroupThread.groupModel.groupAvatarData
+                                                groupId:dataMessage.group.id];
                 NSString *updateGroupInfo = [newGroupThread.groupModel getInfoStringAboutUpdateTo:newGroupModel
                                                                                   contactsManager:self.contactsManager];
-                newGroupThread.groupModel = newGroupModel;
-                [newGroupThread saveWithTransaction:transaction];
+                [newGroupThread anyUpdateGroupThreadWithTransaction:transaction
+                                                              block:^(TSGroupThread *thread) {
+                                                                  thread.groupModel = newGroupModel;
+                                                              }];
 
                 [[OWSDisappearingMessagesJob sharedJob] becomeConsistentWithDisappearingDuration:dataMessage.expireTimer
                                                                                           thread:newGroupThread
-                                                                      createdByRemoteRecipientId:nil
+                                                                        createdByRemoteRecipient:nil
                                                                           createdInExistingGroup:YES
                                                                                      transaction:transaction];
 
@@ -1247,7 +1371,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                                              inThread:newGroupThread
                                                                           messageType:TSInfoMessageTypeGroupUpdate
                                                                         customMessage:updateGroupInfo];
-                [infoMessage saveWithTransaction:transaction];
+                [infoMessage anyInsertWithTransaction:transaction];
 
                 return nil;
             }
@@ -1256,19 +1380,21 @@ NS_ASSUME_NONNULL_BEGIN
                     OWSLogWarn(@"ignoring quit group message from unknown group.");
                     return nil;
                 }
-                [newMemberIds removeObject:envelope.source];
-                oldGroupThread.groupModel.groupMemberIds = [newMemberIds.allObjects mutableCopy];
-                [oldGroupThread saveWithTransaction:transaction];
+                [newMembers removeObject:envelope.sourceAddress];
+                [oldGroupThread anyUpdateGroupThreadWithTransaction:transaction
+                                                              block:^(TSGroupThread *thread) {
+                                                                  thread.groupModel.groupMembers =
+                                                                      [newMembers.allObjects mutableCopy];
+                                                              }];
 
-                NSString *nameString =
-                    [self.contactsManager displayNameForPhoneIdentifier:envelope.source transaction:transaction];
+                NSString *nameString = [self.contactsManager displayNameForAddress:envelope.sourceAddress];
                 NSString *updateGroupInfo =
                     [NSString stringWithFormat:NSLocalizedString(@"GROUP_MEMBER_LEFT", @""), nameString];
                 // MJK TODO - should be safe to remove senderTimestamp
                 [[[TSInfoMessage alloc] initWithTimestamp:[NSDate ows_millisecondTimeStamp]
                                                  inThread:oldGroupThread
                                               messageType:TSInfoMessageTypeGroupUpdate
-                                            customMessage:updateGroupInfo] saveWithTransaction:transaction];
+                                            customMessage:updateGroupInfo] anyInsertWithTransaction:transaction];
                 return nil;
             }
             case SSKProtoGroupContextTypeDeliver: {
@@ -1277,162 +1403,182 @@ NS_ASSUME_NONNULL_BEGIN
                     return nil;
                 }
 
-                [[OWSDisappearingMessagesJob sharedJob] becomeConsistentWithDisappearingDuration:dataMessage.expireTimer
-                                                                                          thread:oldGroupThread
-                                                                      createdByRemoteRecipientId:envelope.source
-                                                                          createdInExistingGroup:NO
-                                                                                     transaction:transaction];
-
-                TSQuotedMessage *_Nullable quotedMessage = [TSQuotedMessage quotedMessageForDataMessage:dataMessage
-                                                                                                 thread:oldGroupThread
-                                                                                            transaction:transaction];
-
-                NSError *linkPreviewError;
-                OWSLinkPreview *_Nullable linkPreview =
-                    [OWSLinkPreview buildValidatedLinkPreviewWithDataMessage:dataMessage
-                                                                        body:body
-                                                                 transaction:transaction
-                                                                       error:&linkPreviewError];
-                if (linkPreviewError && ![OWSLinkPreview isNoPreviewError:linkPreviewError]) {
-                    OWSLogError(@"linkPreviewError: %@", linkPreviewError);
-                }
-
-                OWSLogDebug(@"incoming message from: %@ for group: %@ with timestamp: %lu",
-                    envelopeAddress(envelope),
-                    groupId,
-                    (unsigned long)timestamp);
-
-                // Legit usage of senderTimestamp when creating an incoming group message record
-                TSIncomingMessage *incomingMessage =
-                    [[TSIncomingMessage alloc] initIncomingMessageWithTimestamp:timestamp
-                                                                       inThread:oldGroupThread
-                                                                       authorId:envelope.source
-                                                                 sourceDeviceId:envelope.sourceDevice
-                                                                    messageBody:body
-                                                                  attachmentIds:@[]
-                                                               expiresInSeconds:dataMessage.expireTimer
-                                                                  quotedMessage:quotedMessage
-                                                                   contactShare:contact
-                                                                    linkPreview:linkPreview
-                                                                serverTimestamp:serverTimestamp
-                                                                wasReceivedByUD:wasReceivedByUD];
-
-                NSArray<TSAttachmentPointer *> *attachmentPointers =
-                    [TSAttachmentPointer attachmentPointersFromProtos:dataMessage.attachments
-                                                         albumMessage:incomingMessage];
-                for (TSAttachmentPointer *pointer in attachmentPointers) {
-                    [pointer saveWithTransaction:transaction];
-                    [incomingMessage.attachmentIds addObject:pointer.uniqueId];
-                }
-
-                if (body.length == 0 && attachmentPointers.count < 1 && !contact) {
-                    OWSLogWarn(@"ignoring empty incoming message from: %@ for group: %@ with timestamp: %lu",
-                        envelopeAddress(envelope),
-                        groupId,
-                        (unsigned long)timestamp);
-                    return nil;
-                }
-
-                [self finalizeIncomingMessage:incomingMessage
-                                       thread:oldGroupThread
-                                     envelope:envelope
-                                  transaction:transaction];
-                return incomingMessage;
+                NSString *messageDescription =
+                    [NSString stringWithFormat:@"Incoming message from: %@ for group: %@ with timestamp: %llu",
+                              envelopeAddress(envelope),
+                              groupId,
+                              timestamp];
+                return [self createIncomingMessageInThread:oldGroupThread
+                                        messageDescription:messageDescription
+                                                  envelope:envelope
+                                               dataMessage:dataMessage
+                                           wasReceivedByUD:wasReceivedByUD
+                                               transaction:transaction];
             }
             default: {
-                OWSLogWarn(@"Ignoring unknown group message type: %d", (int)dataMessage.group.type);
+                OWSLogWarn(@"Ignoring unknown group message type: %d", (int)dataMessage.group.unwrappedType);
                 return nil;
             }
         }
     } else {
-        OWSLogDebug(
-            @"incoming message from: %@ with timestamp: %lu", envelopeAddress(envelope), (unsigned long)timestamp);
-        TSContactThread *thread =
-            [TSContactThread getOrCreateThreadWithContactId:envelope.source transaction:transaction];
+        TSContactThread *thread = [TSContactThread getOrCreateThreadWithContactAddress:envelope.sourceAddress
+                                                                           transaction:transaction];
 
-        [[OWSDisappearingMessagesJob sharedJob] becomeConsistentWithDisappearingDuration:dataMessage.expireTimer
-                                                                                  thread:thread
-                                                              createdByRemoteRecipientId:envelope.source
-                                                                  createdInExistingGroup:NO
-                                                                             transaction:transaction];
-
-        TSQuotedMessage *_Nullable quotedMessage = [TSQuotedMessage quotedMessageForDataMessage:dataMessage
-                                                                                         thread:thread
-                                                                                    transaction:transaction];
-
-        NSError *linkPreviewError;
-        OWSLinkPreview *_Nullable linkPreview =
-            [OWSLinkPreview buildValidatedLinkPreviewWithDataMessage:dataMessage
-                                                                body:body
-                                                         transaction:transaction
-                                                               error:&linkPreviewError];
-        if (linkPreviewError && ![OWSLinkPreview isNoPreviewError:linkPreviewError]) {
-            OWSLogError(@"linkPreviewError: %@", linkPreviewError);
-        }
-
-        // Legit usage of senderTimestamp when creating incoming message from received envelope
-        TSIncomingMessage *incomingMessage =
-            [[TSIncomingMessage alloc] initIncomingMessageWithTimestamp:timestamp
-                                                               inThread:thread
-                                                               authorId:[thread contactIdentifier]
-                                                         sourceDeviceId:envelope.sourceDevice
-                                                            messageBody:body
-                                                          attachmentIds:@[]
-                                                       expiresInSeconds:dataMessage.expireTimer
-                                                          quotedMessage:quotedMessage
-                                                           contactShare:contact
-                                                            linkPreview:linkPreview
-                                                        serverTimestamp:serverTimestamp
-                                                        wasReceivedByUD:wasReceivedByUD];
-
-        NSArray<TSAttachmentPointer *> *attachmentPointers =
-            [TSAttachmentPointer attachmentPointersFromProtos:dataMessage.attachments albumMessage:incomingMessage];
-        for (TSAttachmentPointer *pointer in attachmentPointers) {
-            [pointer saveWithTransaction:transaction];
-            [incomingMessage.attachmentIds addObject:pointer.uniqueId];
-        }
-
-        if (body.length == 0 && attachmentPointers.count < 1 && !contact) {
-            OWSLogWarn(@"ignoring empty incoming message from: %@ with timestamp: %lu",
-                envelopeAddress(envelope),
-                (unsigned long)timestamp);
+        if (dataMessage.hasRequiredProtocolVersion
+            && dataMessage.requiredProtocolVersion > SSKProtos.currentProtocolVersion) {
+            [self insertUnknownProtocolVersionErrorInThread:thread
+                                            protocolVersion:dataMessage.requiredProtocolVersion
+                                                     sender:envelope.sourceAddress
+                                                transaction:transaction];
             return nil;
         }
 
-        [self finalizeIncomingMessage:incomingMessage
-                               thread:thread
-                             envelope:envelope
-                          transaction:transaction];
-        return incomingMessage;
+        NSString *messageDescription = [NSString stringWithFormat:@"Incoming 1:1 message from: %@ with timestamp: %llu",
+                                                 envelopeAddress(envelope),
+                                                 timestamp];
+        return [self createIncomingMessageInThread:thread
+                                messageDescription:messageDescription
+                                          envelope:envelope
+                                       dataMessage:dataMessage
+                                   wasReceivedByUD:wasReceivedByUD
+                                       transaction:transaction];
     }
 }
 
-- (void)finalizeIncomingMessage:(TSIncomingMessage *)incomingMessage
-                         thread:(TSThread *)thread
-                       envelope:(SSKProtoEnvelope *)envelope
-                    transaction:(YapDatabaseReadWriteTransaction *)transaction
+- (void)insertUnknownProtocolVersionErrorInThread:(TSThread *)thread
+                                  protocolVersion:(NSUInteger)protocolVersion
+                                           sender:(SignalServiceAddress *)sender
+                                      transaction:(SDSAnyWriteTransaction *)transaction
+{
+    OWSAssertDebug(thread);
+    OWSAssertDebug(transaction);
+
+    OWSFailDebug(@"Unknown protocol version: %lu", (unsigned long)protocolVersion);
+
+    if (!sender.isValid) {
+        OWSFailDebug(@"Missing sender.");
+        return;
+    }
+
+    // We convert protocolVersion to a numeric value here.
+    TSInteraction *message =
+        [[OWSUnknownProtocolVersionMessage alloc] initWithTimestamp:[NSDate ows_millisecondTimeStamp]
+                                                             thread:thread
+                                                             sender:sender
+                                                    protocolVersion:protocolVersion];
+    [message anyInsertWithTransaction:transaction];
+}
+
+- (nullable TSIncomingMessage *)createIncomingMessageInThread:(TSThread *)thread
+                                           messageDescription:(NSString *)messageDescription
+                                                     envelope:(SSKProtoEnvelope *)envelope
+                                                  dataMessage:(SSKProtoDataMessage *)dataMessage
+                                              wasReceivedByUD:(BOOL)wasReceivedByUD
+                                                  transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
-        return;
+        return nil;
     }
     if (!thread) {
         OWSFailDebug(@"Missing thread.");
-        return;
+        return nil;
     }
-    if (!incomingMessage) {
-        OWSFailDebug(@"Missing incomingMessage.");
-        return;
+
+    SignalServiceAddress *authorAddress = envelope.sourceAddress;
+    if (!authorAddress.isValid) {
+        OWSFailDebug(@"invalid authorAddress");
+        return nil;
     }
+
     if (!transaction) {
         OWSFail(@"Missing transaction.");
-        return;
+        return nil;
     }
 
-    [incomingMessage saveWithTransaction:transaction];
+    OWSLogDebug(@"%@", messageDescription);
+
+    uint64_t timestamp = envelope.timestamp;
+    NSString *body = dataMessage.body;
+    NSNumber *_Nullable serverTimestamp = (envelope.hasServerTimestamp ? @(envelope.serverTimestamp) : nil);
+    if (serverTimestamp != nil && ![SDS fitsInInt64WithNSNumber:serverTimestamp]) {
+        OWSFailDebug(@"Invalid timestamp.");
+        return nil;
+    }
+
+    TSQuotedMessage *_Nullable quotedMessage =
+        [TSQuotedMessage quotedMessageForDataMessage:dataMessage thread:thread transaction:transaction];
+
+    OWSContact *_Nullable contact;
+    OWSLinkPreview *_Nullable linkPreview;
+    [[OWSDisappearingMessagesJob sharedJob] becomeConsistentWithDisappearingDuration:dataMessage.expireTimer
+                                                                              thread:thread
+                                                            createdByRemoteRecipient:authorAddress
+                                                              createdInExistingGroup:NO
+                                                                         transaction:transaction];
+
+    contact = [OWSContacts contactForDataMessage:dataMessage transaction:transaction];
+
+    NSError *linkPreviewError;
+    linkPreview = [OWSLinkPreview buildValidatedLinkPreviewWithDataMessage:dataMessage
+                                                                      body:body
+                                                               transaction:transaction
+                                                                     error:&linkPreviewError];
+    if (linkPreviewError && ![OWSLinkPreview isNoPreviewError:linkPreviewError]) {
+        OWSLogError(@"linkPreviewError: %@", linkPreviewError);
+    }
+
+    NSError *stickerError;
+    MessageSticker *_Nullable messageSticker =
+        [MessageSticker buildValidatedMessageStickerWithDataMessage:dataMessage
+                                                        transaction:transaction
+                                                              error:&stickerError];
+    if (stickerError && ![MessageSticker isNoStickerError:stickerError]) {
+        OWSFailDebug(@"stickerError: %@", stickerError);
+    }
+
+    BOOL isViewOnceMessage = dataMessage.hasIsViewOnce && dataMessage.isViewOnce;
+
+    // Legit usage of senderTimestamp when creating an incoming group message record
+    TSIncomingMessage *incomingMessage =
+        [[TSIncomingMessage alloc] initIncomingMessageWithTimestamp:timestamp
+                                                           inThread:thread
+                                                      authorAddress:authorAddress
+                                                     sourceDeviceId:envelope.sourceDevice
+                                                        messageBody:body
+                                                      attachmentIds:@[]
+                                                   expiresInSeconds:dataMessage.expireTimer
+                                                      quotedMessage:quotedMessage
+                                                       contactShare:contact
+                                                        linkPreview:linkPreview
+                                                     messageSticker:messageSticker
+                                                    serverTimestamp:serverTimestamp
+                                                    wasReceivedByUD:wasReceivedByUD
+                                                  isViewOnceMessage:isViewOnceMessage];
+    if (!incomingMessage) {
+        OWSFailDebug(@"Missing incomingMessage.");
+        return nil;
+    }
+
+    NSArray<TSAttachmentPointer *> *attachmentPointers =
+        [TSAttachmentPointer attachmentPointersFromProtos:dataMessage.attachments albumMessage:incomingMessage];
+
+    NSMutableArray<NSString *> *attachmentIds = [incomingMessage.attachmentIds mutableCopy];
+    for (TSAttachmentPointer *pointer in attachmentPointers) {
+        [pointer anyInsertWithTransaction:transaction];
+        [attachmentIds addObject:pointer.uniqueId];
+    }
+    incomingMessage.attachmentIds = [attachmentIds copy];
+
+    if (!incomingMessage.hasRenderableContent) {
+        OWSLogWarn(@"Ignoring empty: %@", messageDescription);
+        return nil;
+    }
+
+    [incomingMessage anyInsertWithTransaction:transaction];
 
     // Any messages sent from the current user - from this device or another - should be automatically marked as read.
-    if ([envelope.source isEqualToString:self.tsAccountManager.localNumber]) {
+    if (envelope.sourceAddress.isLocalAddress) {
         // Don't send a read receipt for messages sent by ourselves.
         [incomingMessage markAsReadAtTimestamp:envelope.timestamp sendReadReceipt:NO transaction:transaction];
     }
@@ -1443,40 +1589,44 @@ NS_ASSUME_NONNULL_BEGIN
         [otherAttachmentIds removeObjectsInArray:incomingMessage.attachmentIds];
     }
     for (NSString *attachmentId in otherAttachmentIds) {
-        TSAttachment *_Nullable attachment =
-            [TSAttachment fetchObjectWithUniqueID:attachmentId transaction:transaction];
+        TSAttachment *_Nullable attachment = [TSAttachment anyFetchWithUniqueId:attachmentId transaction:transaction];
         if (![attachment isKindOfClass:[TSAttachmentPointer class]]) {
             OWSLogInfo(@"Skipping attachment stream.");
             continue;
         }
         TSAttachmentPointer *_Nullable attachmentPointer = (TSAttachmentPointer *)attachment;
 
-        OWSLogDebug(@"Downloading attachment for message: %lu", (unsigned long)incomingMessage.timestamp);
+        OWSLogDebug(@"Downloading attachment for message: %llu", incomingMessage.timestamp);
 
         // Use a separate download for each attachment so that:
         //
         // * We update the message as each comes in.
         // * Failures don't interfere with successes.
         [self.attachmentDownloads downloadAttachmentPointer:attachmentPointer
+            message:incomingMessage
             success:^(NSArray<TSAttachmentStream *> *attachmentStreams) {
-                [self.dbConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
+                [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
                     TSAttachmentStream *_Nullable attachmentStream = attachmentStreams.firstObject;
                     OWSAssertDebug(attachmentStream);
                     if (attachmentStream && incomingMessage.quotedMessage.thumbnailAttachmentPointerId.length > 0 &&
                         [attachmentStream.uniqueId
                             isEqualToString:incomingMessage.quotedMessage.thumbnailAttachmentPointerId]) {
-                        [incomingMessage setQuotedMessageThumbnailAttachmentStream:attachmentStream];
-                        [incomingMessage saveWithTransaction:transaction];
+                        [incomingMessage
+                            anyUpdateMessageWithTransaction:transaction
+                                                      block:^(TSMessage *message) {
+                                                          [message setQuotedMessageThumbnailAttachmentStream:
+                                                                       attachmentStream];
+                                                      }];
                     } else {
                         // We touch the message to trigger redraw of any views displaying it,
                         // since the attachment might be a contact avatar, etc.
-                        [incomingMessage touchWithTransaction:transaction];
+                        [self.databaseStorage touchInteraction:incomingMessage transaction:transaction];
                     }
                 }];
             }
             failure:^(NSError *error) {
-                OWSLogWarn(@"failed to download attachment for message: %lu with error: %@",
-                    (unsigned long)incomingMessage.timestamp,
+                OWSLogWarn(@"failed to download attachment for message: %llu with error: %@",
+                    incomingMessage.timestamp,
                     error);
             }];
     }
@@ -1485,18 +1635,25 @@ NS_ASSUME_NONNULL_BEGIN
     [OWSReadReceiptManager.sharedManager applyEarlyReadReceiptsForIncomingMessage:incomingMessage
                                                                       transaction:transaction];
 
-    // Update thread preview in inbox
-    [thread touchWithTransaction:transaction];
+    [self.databaseStorage touchThread:thread transaction:transaction];
+
+    [ViewOnceMessages applyEarlyReadReceiptsForIncomingMessage:incomingMessage transaction:transaction];
 
     [SSKEnvironment.shared.notificationsManager notifyUserForIncomingMessage:incomingMessage
                                                                     inThread:thread
                                                                  transaction:transaction];
 
+    if (incomingMessage.messageSticker != nil) {
+        [StickerManager.shared setHasUsedStickersWithTransaction:transaction];
+    }
+
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.typingIndicators didReceiveIncomingMessageInThread:thread
-                                                     recipientId:envelope.source
+                                                         address:envelope.sourceAddress
                                                         deviceId:envelope.sourceDevice];
     });
+
+    return incomingMessage;
 }
 
 #pragma mark - helpers
@@ -1508,8 +1665,8 @@ NS_ASSUME_NONNULL_BEGIN
         return NO;
     }
 
-    return (dataMessage.group != nil && dataMessage.group.type == SSKProtoGroupContextTypeUpdate
-        && dataMessage.group.avatar != nil);
+    return (dataMessage.group != nil && dataMessage.group.hasType
+        && dataMessage.group.unwrappedType == SSKProtoGroupContextTypeUpdate && dataMessage.group.avatar != nil);
 }
 
 /**
@@ -1519,7 +1676,7 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (nullable TSThread *)threadForEnvelope:(SSKProtoEnvelope *)envelope
                              dataMessage:(SSKProtoDataMessage *)dataMessage
-                             transaction:(YapDatabaseReadWriteTransaction *)transaction
+                             transaction:(SDSAnyWriteTransaction *)transaction
 {
     if (!envelope) {
         OWSFailDebug(@"Missing envelope.");
@@ -1543,27 +1700,26 @@ NS_ASSUME_NONNULL_BEGIN
         OWSAssertDebug(groupThread);
         return groupThread;
     } else {
-        return [TSContactThread getOrCreateThreadWithContactId:envelope.source transaction:transaction];
+        return [TSContactThread getOrCreateThreadWithContactAddress:envelope.sourceAddress transaction:transaction];
     }
 }
 
 #pragma mark -
 
-- (void)checkForUnknownLinkedDevice:(SSKProtoEnvelope *)envelope
-                        transaction:(YapDatabaseReadWriteTransaction *)transaction
+- (void)checkForUnknownLinkedDevice:(SSKProtoEnvelope *)envelope transaction:(SDSAnyWriteTransaction *)transaction
 {
     OWSAssertDebug(envelope);
     OWSAssertDebug(transaction);
 
-    NSString *localNumber = self.tsAccountManager.localNumber;
-    if (![localNumber isEqualToString:envelope.source]) {
+    if (!envelope.sourceAddress.isLocalAddress) {
         return;
     }
 
     // Consult the device list cache we use for message sending
     // whether or not we know about this linked device.
-    SignalRecipient *_Nullable recipient =
-        [SignalRecipient registeredRecipientForRecipientId:localNumber mustHaveDevices:NO transaction:transaction];
+    SignalRecipient *_Nullable recipient = [SignalRecipient registeredRecipientForAddress:envelope.sourceAddress
+                                                                          mustHaveDevices:NO
+                                                                              transaction:transaction];
     if (!recipient) {
         OWSFailDebug(@"No local SignalRecipient.");
     } else {
@@ -1581,7 +1737,7 @@ NS_ASSUME_NONNULL_BEGIN
     // Consult the device list cache we use for the "linked device" UI
     // whether or not we know about this linked device.
     NSMutableSet<NSNumber *> *deviceIdSet = [NSMutableSet new];
-    for (OWSDevice *device in [OWSDevice currentDevicesWithTransaction:transaction]) {
+    for (OWSDevice *device in [OWSDevice anyFetchAllWithTransaction:transaction]) {
         [deviceIdSet addObject:@(device.deviceId)];
     }
     BOOL isInDeviceList = [deviceIdSet containsObject:@(envelope.sourceDevice)];

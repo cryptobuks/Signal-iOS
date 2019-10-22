@@ -1,38 +1,50 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 #import "OWS2FAManager.h"
 #import "NSNotificationCenter+OWS.h"
-#import "OWSPrimaryStorage.h"
 #import "OWSRequestFactory.h"
 #import "SSKEnvironment.h"
 #import "TSAccountManager.h"
 #import "TSNetworkManager.h"
-#import "YapDatabaseConnection+OWS.h"
 #import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 NSString *const NSNotificationName_2FAStateDidChange = @"NSNotificationName_2FAStateDidChange";
 
-NSString *const kOWS2FAManager_Collection = @"kOWS2FAManager_Collection";
 NSString *const kOWS2FAManager_LastSuccessfulReminderDateKey = @"kOWS2FAManager_LastSuccessfulReminderDateKey";
 NSString *const kOWS2FAManager_PinCode = @"kOWS2FAManager_PinCode";
 NSString *const kOWS2FAManager_RepetitionInterval = @"kOWS2FAManager_RepetitionInterval";
+NSString *const kOWS2FAManager_HasMigratedTruncatedPinKey = @"kOWS2FAManager_HasMigratedTruncatedPinKey";
 
 const NSUInteger kHourSecs = 60 * 60;
 const NSUInteger kDaySecs = kHourSecs * 24;
 
+const NSUInteger kMin2FAPinLength = 4;
+const NSUInteger kMax2FAv1PinLength = 20; // v2 doesn't have a max length
+const NSUInteger kLegacyTruncated2FAv1PinLength = 16;
+
 @interface OWS2FAManager ()
 
-@property (nonatomic, readonly) YapDatabaseConnection *dbConnection;
+@property (nonatomic) OWS2FAMode mode;
 
 @end
 
 #pragma mark -
 
 @implementation OWS2FAManager
+
+#pragma mark -
+
++ (SDSKeyValueStore *)keyValueStore
+{
+    NSString *const kOWS2FAManager_Collection = @"kOWS2FAManager_Collection";
+    return [[SDSKeyValueStore alloc] initWithCollection:kOWS2FAManager_Collection];
+}
+
+#pragma mark -
 
 + (instancetype)sharedManager
 {
@@ -41,17 +53,13 @@ const NSUInteger kDaySecs = kHourSecs * 24;
     return SSKEnvironment.shared.ows2FAManager;
 }
 
-- (instancetype)initWithPrimaryStorage:(OWSPrimaryStorage *)primaryStorage
+- (instancetype)init
 {
     self = [super init];
 
     if (!self) {
         return self;
     }
-
-    OWSAssertDebug(primaryStorage);
-
-    _dbConnection = primaryStorage.newDatabaseConnection;
 
     OWSSingletonAssert();
 
@@ -70,21 +78,45 @@ const NSUInteger kDaySecs = kHourSecs * 24;
     return TSAccountManager.sharedInstance;
 }
 
+- (SDSDatabaseStorage *)databaseStorage
+{
+    return SSKEnvironment.shared.databaseStorage;
+}
+
 #pragma mark -
 
 - (nullable NSString *)pinCode
 {
-    return [self.dbConnection objectForKey:kOWS2FAManager_PinCode inCollection:kOWS2FAManager_Collection];
+    __block NSString *_Nullable value;
+    [self.databaseStorage readWithBlock:^(SDSAnyReadTransaction *transaction) {
+        value = [OWS2FAManager.keyValueStore getString:kOWS2FAManager_PinCode transaction:transaction];
+    }];
+    return value;
+}
+
+- (OWS2FAMode)mode
+{
+    // Identify what version of 2FA we're using
+    if (OWSKeyBackupService.hasLocalKeys) {
+        OWSAssertDebug(SSKFeatureFlags.registrationLockV2);
+        return OWS2FAMode_V2;
+    } else if (self.pinCode != nil) {
+        return OWS2FAMode_V1;
+    } else {
+        return OWS2FAMode_Disabled;
+    }
 }
 
 - (BOOL)is2FAEnabled
 {
-    return self.pinCode != nil;
+    return self.mode != OWS2FAMode_Disabled;
 }
 
 - (void)set2FANotEnabled
 {
-    [self.dbConnection removeObjectForKey:kOWS2FAManager_PinCode inCollection:kOWS2FAManager_Collection];
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        [OWS2FAManager.keyValueStore removeValueForKey:kOWS2FAManager_PinCode transaction:transaction];
+    }];
 
     [[NSNotificationCenter defaultCenter] postNotificationNameAsync:NSNotificationName_2FAStateDidChange
                                                              object:nil
@@ -97,7 +129,23 @@ const NSUInteger kDaySecs = kHourSecs * 24;
 {
     OWSAssertDebug(pin.length > 0);
 
-    [self.dbConnection setObject:pin forKey:kOWS2FAManager_PinCode inCollection:kOWS2FAManager_Collection];
+    // Convert the pin to arabic numerals, we never want to
+    // operate with pins in other numbering systems.
+    pin = pin.ensureArabicNumerals;
+
+    if (!SSKFeatureFlags.registrationLockV2) {
+        [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+            [OWS2FAManager.keyValueStore setString:pin key:kOWS2FAManager_PinCode transaction:transaction];
+        }];
+    } else {
+        // Remove any old pin when we're migrating
+        [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+            [OWS2FAManager.keyValueStore removeValueForKey:kOWS2FAManager_PinCode transaction:transaction];
+        }];
+    }
+
+    // Since we just created this pin, we know it doesn't need migration. Mark it as such.
+    [self markLegacyPinAsMigrated];
 
     // Schedule next reminder relative to now
     self.lastSuccessfulReminderDate = [NSDate new];
@@ -117,46 +165,111 @@ const NSUInteger kDaySecs = kHourSecs * 24;
     OWSAssertDebug(success);
     OWSAssertDebug(failure);
 
-    TSRequest *request = [OWSRequestFactory enable2FARequestWithPin:pin];
-    [self.networkManager makeRequest:request
-        success:^(NSURLSessionDataTask *task, id responseObject) {
-            OWSAssertIsOnMainThread();
+    // Convert the pin to arabic numerals, we never want to
+    // operate with pins in other numbering systems.
+    pin = pin.ensureArabicNumerals;
 
-            [self mark2FAAsEnabledWithPin:pin];
+    if (SSKFeatureFlags.registrationLockV2) {
+        [[OWSKeyBackupService generateAndBackupKeysWithPin:pin].then(^{
+            NSString *token = [OWSKeyBackupService deriveRegistrationLockToken];
+            TSRequest *request = [OWSRequestFactory enableRegistrationLockV2RequestWithToken:token];
+            [self.networkManager makeRequest:request
+                                     success:^(NSURLSessionDataTask *task, id responseObject) {
+                                         OWSAssertIsOnMainThread();
 
-            if (success) {
-                success();
-            }
-        }
-        failure:^(NSURLSessionDataTask *task, NSError *error) {
-            OWSAssertIsOnMainThread();
+                                         [self mark2FAAsEnabledWithPin:pin];
 
+                                         if (success) {
+                                             success();
+                                         }
+                                     }
+                                     failure:^(NSURLSessionDataTask *task, NSError *error) {
+                                         OWSAssertIsOnMainThread();
+
+                                         if (failure) {
+                                             failure(error);
+                                         }
+                                     }];
+        }).catch(^(NSError *error){
             if (failure) {
                 failure(error);
             }
-        }];
+        }) retainUntilComplete];
+    } else {
+        TSRequest *request = [OWSRequestFactory enable2FARequestWithPin:pin];
+        [self.networkManager makeRequest:request
+                                 success:^(NSURLSessionDataTask *task, id responseObject) {
+                                     OWSAssertIsOnMainThread();
+
+                                     [self mark2FAAsEnabledWithPin:pin];
+
+                                     if (success) {
+                                         success();
+                                     }
+                                 }
+                                 failure:^(NSURLSessionDataTask *task, NSError *error) {
+                                     OWSAssertIsOnMainThread();
+
+                                     if (failure) {
+                                         failure(error);
+                                     }
+                                 }];
+    }
 }
 
 - (void)disable2FAWithSuccess:(nullable OWS2FASuccess)success failure:(nullable OWS2FAFailure)failure
 {
-    TSRequest *request = [OWSRequestFactory disable2FARequest];
-    [self.networkManager makeRequest:request
-        success:^(NSURLSessionDataTask *task, id responseObject) {
-            OWSAssertIsOnMainThread();
+    switch (self.mode) {
+        case OWS2FAMode_V2:
+        {
+            TSRequest *request = [OWSRequestFactory disableRegistrationLockV2Request];
+            [self.networkManager makeRequest:request
+                success:^(NSURLSessionDataTask *task, id responseObject) {
+                    OWSAssertIsOnMainThread();
 
-            [self set2FANotEnabled];
+                    [OWSKeyBackupService clearKeychain];
 
-            if (success) {
-                success();
-            }
+                    [self set2FANotEnabled];
+
+                    if (success) {
+                        success();
+                    }
+                }
+                failure:^(NSURLSessionDataTask *task, NSError *error) {
+                    OWSAssertIsOnMainThread();
+
+                    if (failure) {
+                        failure(error);
+                    }
+                }];
+            break;
         }
-        failure:^(NSURLSessionDataTask *task, NSError *error) {
-            OWSAssertIsOnMainThread();
+        case OWS2FAMode_V1:
+        {
+            TSRequest *request = [OWSRequestFactory disable2FARequest];
+            [self.networkManager makeRequest:request
+                                     success:^(NSURLSessionDataTask *task, id responseObject) {
+                                         OWSAssertIsOnMainThread();
 
-            if (failure) {
-                failure(error);
-            }
-        }];
+                                         [self set2FANotEnabled];
+
+                                         if (success) {
+                                             success();
+                                         }
+                                     }
+                                     failure:^(NSURLSessionDataTask *task, NSError *error) {
+                                         OWSAssertIsOnMainThread();
+
+                                         if (failure) {
+                                             failure(error);
+                                         }
+                                     }];
+            break;
+        }
+        case OWS2FAMode_Disabled:
+            OWSFailDebug(@"Unexpectedly attempting to disable 2fa for disabled mode");
+            break;
+    }
 }
 
 
@@ -164,16 +277,22 @@ const NSUInteger kDaySecs = kHourSecs * 24;
 
 - (nullable NSDate *)lastSuccessfulReminderDate
 {
-    return [self.dbConnection dateForKey:kOWS2FAManager_LastSuccessfulReminderDateKey
-                            inCollection:kOWS2FAManager_Collection];
+    __block NSDate *_Nullable value;
+    [self.databaseStorage readWithBlock:^(SDSAnyReadTransaction *transaction) {
+        value =
+            [OWS2FAManager.keyValueStore getDate:kOWS2FAManager_LastSuccessfulReminderDateKey transaction:transaction];
+    }];
+    return value;
 }
 
 - (void)setLastSuccessfulReminderDate:(nullable NSDate *)date
 {
-    OWSLogDebug(@"Seting setLastSuccessfulReminderDate:%@", date);
-    [self.dbConnection setDate:date
-                        forKey:kOWS2FAManager_LastSuccessfulReminderDateKey
-                  inCollection:kOWS2FAManager_Collection];
+    OWSLogDebug(@"Setting setLastSuccessfulReminderDate:%@", date);
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        [OWS2FAManager.keyValueStore setDate:date
+                                         key:kOWS2FAManager_LastSuccessfulReminderDateKey
+                                 transaction:transaction];
+    }];
 }
 
 - (BOOL)isDueForReminder
@@ -183,6 +302,75 @@ const NSUInteger kDaySecs = kHourSecs * 24;
     }
 
     return self.nextReminderDate.timeIntervalSinceNow < 0;
+}
+
+- (BOOL)hasPending2FASetup
+{
+    __block BOOL hasPendingPinExperienceUpgrade = NO;
+    [self.databaseStorage readWithBlock:^(SDSAnyReadTransaction *transaction) {
+        hasPendingPinExperienceUpgrade = [ExperienceUpgradeFinder.sharedManager
+            hasUnseenWithExperienceUpgrade:ExperienceUpgradeFinder.sharedManager.pins
+                               transaction:transaction];
+    }];
+
+    // If we require pins AND we don't have a pin AND we're not going to setup a pin through the upgrade interstitial
+    return SSKFeatureFlags.pinsForEveryone && !self.is2FAEnabled && !hasPendingPinExperienceUpgrade;
+}
+
+- (BOOL)needsLegacyPinMigration
+{
+    __block BOOL hasMigratedTruncatedPin = NO;
+    [self.databaseStorage readWithBlock:^(SDSAnyReadTransaction *transaction) {
+        hasMigratedTruncatedPin = [OWS2FAManager.keyValueStore getBool:kOWS2FAManager_HasMigratedTruncatedPinKey
+                                                          defaultValue:NO
+                                                           transaction:transaction];
+    }];
+
+    if (hasMigratedTruncatedPin) {
+        return NO;
+    }
+
+    // Older versions of the app truncated newly created pins to 16 characters. We no longer do that.
+    // If we detect that the user's pin is the truncated length and it was created before we stopped
+    // truncating pins, we'll need to ensure we migrate to the user's entire pin next time we prompt
+    // them for it.
+    if (self.mode == OWS2FAMode_V1 && self.pinCode.length >= kLegacyTruncated2FAv1PinLength) {
+        return YES;
+    }
+
+    // We don't need to migrate this pin, either because it's v2 or short enough that
+    // we never truncated it. Mark it as complete so we don't need to check again.
+
+    [self markLegacyPinAsMigrated];
+
+    return NO;
+}
+
+- (void)markLegacyPinAsMigrated
+{
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        [OWS2FAManager.keyValueStore setBool:YES key:kOWS2FAManager_HasMigratedTruncatedPinKey transaction:transaction];
+    }];
+}
+
+- (void)verifyPin:(NSString *)pin result:(void (^_Nonnull)(BOOL))result
+{
+    // Convert the pin to arabic numerals, we never want to
+    // operate with pins in other numbering systems.
+    pin = pin.ensureArabicNumerals;
+
+    switch (self.mode) {
+    case OWS2FAMode_V2:
+        [OWSKeyBackupService verifyPin:pin resultHandler:result];
+        break;
+    case OWS2FAMode_V1:
+        result([self.pinCode.ensureArabicNumerals isEqualToString:pin]);
+        break;
+    case OWS2FAMode_Disabled:
+        OWSFailDebug(@"unexpectedly attempting to verify pin when 2fa is disabled");
+        result(NO);
+        break;
+    }
 }
 
 - (NSDate *)nextReminderDate
@@ -211,9 +399,13 @@ const NSUInteger kDaySecs = kHourSecs * 24;
 
 - (NSTimeInterval)repetitionInterval
 {
-    return [self.dbConnection doubleForKey:kOWS2FAManager_RepetitionInterval
-                              inCollection:kOWS2FAManager_Collection
-                              defaultValue:self.defaultRepetitionInterval];
+    __block NSTimeInterval value;
+    [self.databaseStorage readWithBlock:^(SDSAnyReadTransaction *transaction) {
+        value = [OWS2FAManager.keyValueStore getDouble:kOWS2FAManager_RepetitionInterval
+                                          defaultValue:self.defaultRepetitionInterval
+                                           transaction:transaction];
+    }];
+    return value;
 }
 
 - (void)updateRepetitionIntervalWithWasSuccessful:(BOOL)wasSuccessful
@@ -229,9 +421,11 @@ const NSUInteger kDaySecs = kHourSecs * 24;
         (wasSuccessful ? @"successful" : @"failed"),
         oldInterval,
         newInterval);
-    [self.dbConnection setDouble:newInterval
-                          forKey:kOWS2FAManager_RepetitionInterval
-                    inCollection:kOWS2FAManager_Collection];
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        [OWS2FAManager.keyValueStore setDouble:newInterval
+                                           key:kOWS2FAManager_RepetitionInterval
+                                   transaction:transaction];
+    }];
 }
 
 - (NSTimeInterval)adjustRepetitionInterval:(NSTimeInterval)oldInterval wasSuccessful:(BOOL)wasSuccessful
@@ -260,9 +454,11 @@ const NSUInteger kDaySecs = kHourSecs * 24;
 
 - (void)setDefaultRepetitionInterval
 {
-    [self.dbConnection setDouble:self.defaultRepetitionInterval
-                          forKey:kOWS2FAManager_RepetitionInterval
-                    inCollection:kOWS2FAManager_Collection];
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        [OWS2FAManager.keyValueStore setDouble:self.defaultRepetitionInterval
+                                           key:kOWS2FAManager_RepetitionInterval
+                                   transaction:transaction];
+    }];
 }
 
 @end

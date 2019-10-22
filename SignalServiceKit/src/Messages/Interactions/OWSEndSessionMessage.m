@@ -14,7 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
     return [super initWithCoder:coder];
 }
 
-- (instancetype)initWithTimestamp:(uint64_t)timestamp inThread:(nullable TSThread *)thread
+- (instancetype)initWithTimestamp:(uint64_t)timestamp inThread:(TSThread *)thread
 {
     return [super initOutgoingMessageWithTimestamp:timestamp
                                           inThread:thread
@@ -26,7 +26,9 @@ NS_ASSUME_NONNULL_BEGIN
                                   groupMetaMessage:TSGroupMetaMessageUnspecified
                                      quotedMessage:nil
                                       contactShare:nil
-                                       linkPreview:nil];
+                                       linkPreview:nil
+                                    messageSticker:nil
+                                 isViewOnceMessage:NO];
 }
 
 - (BOOL)shouldBeSaved
@@ -34,9 +36,10 @@ NS_ASSUME_NONNULL_BEGIN
     return NO;
 }
 
-- (nullable SSKProtoDataMessageBuilder *)dataMessageBuilder
+- (nullable SSKProtoDataMessageBuilder *)dataMessageBuilderWithThread:(TSThread *)thread
+                                                          transaction:(SDSAnyReadTransaction *)transaction
 {
-    SSKProtoDataMessageBuilder *_Nullable builder = [super dataMessageBuilder];
+    SSKProtoDataMessageBuilder *_Nullable builder = [super dataMessageBuilderWithThread:thread transaction:transaction];
     if (!builder) {
         return nil;
     }

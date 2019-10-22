@@ -12,6 +12,18 @@ protocol ConversationSearchViewDelegate: class {
 @objc
 class ConversationSearchViewController: UITableViewController, BlockListCacheDelegate {
 
+    // MARK: - Dependencies
+
+    private var databaseStorage: SDSDatabaseStorage {
+        return SDSDatabaseStorage.shared
+    }
+
+    private var contactsManager: OWSContactsManager {
+        return Environment.shared.contactsManager
+    }
+
+    // MARK: -
+
     @objc
     public weak var delegate: ConversationSearchViewDelegate?
 
@@ -33,16 +45,8 @@ class ConversationSearchViewController: UITableViewController, BlockListCacheDel
         }
     }
 
-    var uiDatabaseConnection: YapDatabaseConnection {
-        return OWSPrimaryStorage.shared().uiDatabaseConnection
-    }
-
-    var searcher: ConversationSearcher {
-        return ConversationSearcher.shared
-    }
-
-    private var contactsManager: OWSContactsManager {
-        return Environment.shared.contactsManager
+    var searcher: FullTextSearcher {
+        return FullTextSearcher.shared
     }
 
     enum SearchSection: Int {
@@ -64,7 +68,7 @@ class ConversationSearchViewController: UITableViewController, BlockListCacheDel
         blockListCache = BlockListCache()
         blockListCache.startObservingAndSyncState(delegate: self)
 
-        tableView.rowHeight = UITableViewAutomaticDimension
+        tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 60
         tableView.separatorColor = Theme.cellSeparatorColor
 
@@ -72,10 +76,8 @@ class ConversationSearchViewController: UITableViewController, BlockListCacheDel
         tableView.register(HomeViewCell.self, forCellReuseIdentifier: HomeViewCell.cellReuseIdentifier())
         tableView.register(ContactTableViewCell.self, forCellReuseIdentifier: ContactTableViewCell.reuseIdentifier())
 
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(yapDatabaseModified),
-                                               name: NSNotification.Name.YapDatabaseModified,
-                                               object: OWSPrimaryStorage.shared().dbNotificationObject)
+        databaseStorage.add(databaseStorageObserver: self)
+
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(themeDidChange),
                                                name: NSNotification.Name.ThemeDidChange,
@@ -101,13 +103,8 @@ class ConversationSearchViewController: UITableViewController, BlockListCacheDel
         NotificationCenter.default.removeObserver(self)
     }
 
-    @objc internal func yapDatabaseModified(notification: NSNotification) {
-        AssertIsOnMainThread()
-
-        refreshSearchResults()
-    }
-
-    @objc internal func themeDidChange(notification: NSNotification) {
+    @objc
+    internal func themeDidChange(notification: NSNotification) {
         AssertIsOnMainThread()
 
         applyTheme()
@@ -161,7 +158,7 @@ class ConversationSearchViewController: UITableViewController, BlockListCacheDel
                 return
             }
 
-            SignalApp.shared().presentConversation(forRecipientId: searchResult.recipientId, action: .compose, animated: true)
+            SignalApp.shared().presentConversation(for: searchResult.recipientAddress, action: .compose, animated: true)
 
         case .messages:
             let sectionResults = searchResultSet.messages
@@ -243,7 +240,7 @@ class ConversationSearchViewController: UITableViewController, BlockListCacheDel
                 owsFailDebug("searchResult was unexpectedly nil")
                 return UITableViewCell()
             }
-            cell.configure(withRecipientId: searchResult.signalAccount.recipientId)
+            cell.configure(withRecipientAddress: searchResult.signalAccount.recipientAddress)
             return cell
         case .messages:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: HomeViewCell.cellReuseIdentifier()) as? HomeViewCell else {
@@ -272,7 +269,7 @@ class ConversationSearchViewController: UITableViewController, BlockListCacheDel
                 if let messageSnippet = searchResult.snippet {
                     overrideSnippet = NSAttributedString(string: messageSnippet,
                                                          attributes: [
-                                                            NSAttributedStringKey.foregroundColor: Theme.secondaryColor
+                                                            NSAttributedString.Key.foregroundColor: Theme.secondaryColor
                     ])
                 } else {
                     owsFailDebug("message search result is missing message snippet")
@@ -296,7 +293,7 @@ class ConversationSearchViewController: UITableViewController, BlockListCacheDel
         guard nil != self.tableView(tableView, titleForHeaderInSection: section) else {
             return 0
         }
-        return UITableViewAutomaticDimension
+        return UITableView.automaticDimension
     }
 
     override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
@@ -310,13 +307,10 @@ class ConversationSearchViewController: UITableViewController, BlockListCacheDel
         label.font = UIFont.ows_dynamicTypeBody.ows_mediumWeight()
         label.tag = section
 
-        let hMargin: CGFloat = 15
-        let vMargin: CGFloat = 4
         let wrapper = UIView()
         wrapper.backgroundColor = Theme.offBackgroundColor
         wrapper.addSubview(label)
-        label.autoPinWidthToSuperview(withMargin: hMargin)
-        label.autoPinHeightToSuperview(withMargin: vMargin)
+        label.autoPinEdgesToSuperviewMargins()
 
         return wrapper
     }
@@ -398,11 +392,11 @@ class ConversationSearchViewController: UITableViewController, BlockListCacheDel
         }
 
         var searchResults: HomeScreenSearchResultSet?
-        self.uiDatabaseConnection.asyncRead({[weak self] transaction in
+        self.databaseStorage.asyncRead(block: {[weak self] transaction in
             guard let strongSelf = self else { return }
-            searchResults = strongSelf.searcher.searchForHomeScreen(searchText: searchText, transaction: transaction, contactsManager: strongSelf.contactsManager)
+            searchResults = strongSelf.searcher.searchForHomeScreen(searchText: searchText, transaction: transaction)
         },
-                                            completionBlock: { [weak self] in
+                                            completion: { [weak self] in
                                                 AssertIsOnMainThread()
                                                 guard let strongSelf = self else { return }
 
@@ -433,7 +427,7 @@ class EmptySearchResultCell: UITableViewCell {
     static let reuseIdentifier = "EmptySearchResultCell"
 
     let messageLabel: UILabel
-    override init(style: UITableViewCellStyle, reuseIdentifier: String?) {
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         self.messageLabel = UILabel()
         super.init(style: style, reuseIdentifier: reuseIdentifier)
 
@@ -467,5 +461,27 @@ class EmptySearchResultCell: UITableViewCell {
 
         messageLabel.textColor = Theme.primaryColor
         messageLabel.font = UIFont.ows_dynamicTypeBody
+    }
+}
+
+// MARK: -
+
+extension ConversationSearchViewController: SDSDatabaseStorageObserver {
+    func databaseStorageDidUpdate(change: SDSDatabaseStorageChange) {
+        AssertIsOnMainThread()
+
+        refreshSearchResults()
+    }
+
+    func databaseStorageDidUpdateExternally() {
+        AssertIsOnMainThread()
+
+        refreshSearchResults()
+    }
+
+    func databaseStorageDidReset() {
+        AssertIsOnMainThread()
+
+        refreshSearchResults()
     }
 }

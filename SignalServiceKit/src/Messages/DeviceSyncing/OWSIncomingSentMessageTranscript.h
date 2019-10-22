@@ -4,14 +4,16 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class MessageSticker;
 @class OWSContact;
 @class OWSLinkPreview;
+@class SDSAnyWriteTransaction;
 @class SSKProtoAttachmentPointer;
 @class SSKProtoDataMessage;
 @class SSKProtoSyncMessageSent;
+@class SignalServiceAddress;
 @class TSQuotedMessage;
 @class TSThread;
-@class YapDatabaseReadWriteTransaction;
 
 /**
  * Represents notification of a message sent on our behalf from another device.
@@ -19,12 +21,11 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @interface OWSIncomingSentMessageTranscript : NSObject
 
-- (instancetype)initWithProto:(SSKProtoSyncMessageSent *)sentProto
-                  transaction:(YapDatabaseReadWriteTransaction *)transaction;
+- (instancetype)initWithProto:(SSKProtoSyncMessageSent *)sentProto transaction:(SDSAnyWriteTransaction *)transaction;
 
-@property (nonatomic, readonly) SSKProtoDataMessage *dataMessage;
-@property (nonatomic, readonly) NSString *recipientId;
+@property (nonatomic, readonly) SignalServiceAddress *recipientAddress;
 @property (nonatomic, readonly) uint64_t timestamp;
+@property (nonatomic, readonly) uint64_t dataMessageTimestamp;
 @property (nonatomic, readonly) uint64_t expirationStartedAt;
 @property (nonatomic, readonly) uint32_t expirationDuration;
 @property (nonatomic, readonly) BOOL isGroupUpdate;
@@ -33,15 +34,19 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, nullable) NSData *groupId;
 @property (nonatomic, readonly) NSString *body;
 @property (nonatomic, readonly) NSArray<SSKProtoAttachmentPointer *> *attachmentPointerProtos;
-@property (nonatomic, readonly) TSThread *thread;
+@property (nonatomic, readonly, nullable) TSThread *thread;
 @property (nonatomic, readonly, nullable) TSQuotedMessage *quotedMessage;
 @property (nonatomic, readonly, nullable) OWSContact *contact;
 @property (nonatomic, readonly, nullable) OWSLinkPreview *linkPreview;
+@property (nonatomic, readonly, nullable) MessageSticker *messageSticker;
+@property (nonatomic, readonly) BOOL isRecipientUpdate;
+@property (nonatomic, readonly) BOOL isViewOnceMessage;
+@property (nonatomic, readonly, nullable) NSNumber *requiredProtocolVersion;
 
 // If either nonUdRecipientIds or udRecipientIds is nil,
 // this is either a legacy transcript or it reflects a legacy sync message.
-@property (nonatomic, readonly, nullable) NSArray<NSString *> *nonUdRecipientIds;
-@property (nonatomic, readonly, nullable) NSArray<NSString *> *udRecipientIds;
+@property (nonatomic, readonly, nullable) NSArray<SignalServiceAddress *> *nonUdRecipientAddresses;
+@property (nonatomic, readonly, nullable) NSArray<SignalServiceAddress *> *udRecipientAddresses;
 
 @end
 

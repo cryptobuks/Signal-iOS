@@ -12,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // MJK TODO - remove senderTimestamp
 - (instancetype)initOutgoingMessageWithTimestamp:(uint64_t)timestamp
-                                        inThread:(nullable TSThread *)thread
+                                        inThread:(TSThread *)thread
                                      messageBody:(nullable NSString *)body
                                    attachmentIds:(NSMutableArray<NSString *> *)attachmentIds
                                 expiresInSeconds:(uint32_t)expiresInSeconds
@@ -21,7 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
                                 groupMetaMessage:(TSGroupMetaMessage)groupMetaMessage
                                    quotedMessage:(nullable TSQuotedMessage *)quotedMessage
                                     contactShare:(nullable OWSContact *)contactShare
-                                     linkPreview:(nullable OWSLinkPreview *)linkPreview NS_UNAVAILABLE;
+                                     linkPreview:(nullable OWSLinkPreview *)linkPreview
+                                  messageSticker:(nullable MessageSticker *)messageSticker NS_UNAVAILABLE;
 
 - (instancetype)initWithConfiguration:(OWSDisappearingMessagesConfiguration *)configuration thread:(TSThread *)thread;
 

@@ -1,12 +1,10 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
 import PromiseKit
 import SignalMetadataKit
-
-public typealias RecipientIdentifier = String
 
 @objc
 public protocol SignalServiceClientObjC {
@@ -14,16 +12,22 @@ public protocol SignalServiceClientObjC {
 }
 
 public protocol SignalServiceClient: SignalServiceClientObjC {
+    func requestPreauthChallenge(recipientId: String, pushToken: String) -> Promise<Void>
+    func requestVerificationCode(recipientId: String, preauthChallenge: String?, captchaToken: String?, transport: TSVerificationTransport) -> Promise<Void>
     func getAvailablePreKeys() -> Promise<Int>
     func registerPreKeys(identityKey: IdentityKey, signedPreKeyRecord: SignedPreKeyRecord, preKeyRecords: [PreKeyRecord]) -> Promise<Void>
     func setCurrentSignedPreKey(_ signedPreKey: SignedPreKeyRecord) -> Promise<Void>
     func requestUDSenderCertificate() -> Promise<Data>
     func updateAccountAttributes() -> Promise<Void>
+    func getAccountUuid() -> Promise<UUID>
+    func requestStorageAuth() -> Promise<(username: String, password: String)>
 }
 
 /// Based on libsignal-service-java's PushServiceSocket class
 @objc
 public class SignalServiceRestClient: NSObject, SignalServiceClient {
+
+    // MARK: - Dependencies
 
     var networkManager: TSNetworkManager {
         return TSNetworkManager.shared()
@@ -33,8 +37,20 @@ public class SignalServiceRestClient: NSObject, SignalServiceClient {
         return SSKEnvironment.shared.udManager
     }
 
-    func unexpectedServerResponseError() -> Error {
-        return OWSErrorMakeUnableToProcessServerResponseError()
+    // MARK: - Public
+
+    public func requestPreauthChallenge(recipientId: String, pushToken: String) -> Promise<Void> {
+        let request = OWSRequestFactory.requestPreauthChallengeRequest(recipientId: recipientId,
+                                                                       pushToken: pushToken)
+        return networkManager.makePromise(request: request).asVoid()
+    }
+
+    public func requestVerificationCode(recipientId: String, preauthChallenge: String?, captchaToken: String?, transport: TSVerificationTransport) -> Promise<Void> {
+        let request = OWSRequestFactory.requestVerificationCodeRequest(withPhoneNumber: recipientId,
+                                                                       preauthChallenge: preauthChallenge,
+                                                                       captchaToken: captchaToken,
+                                                                       transport: transport)
+        return networkManager.makePromise(request: request).asVoid()
     }
 
     public func getAvailablePreKeys() -> Promise<Int> {
@@ -90,5 +106,43 @@ public class SignalServiceRestClient: NSObject, SignalServiceClient {
     public func updateAccountAttributes() -> Promise<Void> {
         let request = OWSRequestFactory.updateAttributesRequest()
         return networkManager.makePromise(request: request).asVoid()
+    }
+
+    public func getAccountUuid() -> Promise<UUID> {
+        let request = OWSRequestFactory.accountWhoAmIRequest()
+
+        return networkManager.makePromise(request: request).map { _, responseObject in
+            guard let parser = ParamParser(responseObject: responseObject) else {
+                throw OWSErrorMakeUnableToProcessServerResponseError()
+            }
+
+            let uuidString: String = try parser.required(key: "uuid")
+
+            guard let uuid = UUID(uuidString: uuidString) else {
+                throw OWSErrorMakeUnableToProcessServerResponseError()
+            }
+
+            return uuid
+        }
+    }
+
+    public func requestStorageAuth() -> Promise<(username: String, password: String)> {
+        let request = OWSRequestFactory.storageAuthRequest()
+        return networkManager.makePromise(request: request).map { _, responseObject in
+            guard let parser = ParamParser(responseObject: responseObject) else {
+                throw OWSErrorMakeUnableToProcessServerResponseError()
+            }
+
+            let username: String = try parser.required(key: "username")
+            let password: String = try parser.required(key: "password")
+
+            return (username: username, password: password)
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func unexpectedServerResponseError() -> Error {
+        return OWSErrorMakeUnableToProcessServerResponseError()
     }
 }

@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
@@ -15,12 +15,12 @@ public class BackupLazyRestore: NSObject {
         return AppEnvironment.shared.backup
     }
 
-    private var primaryStorage: OWSPrimaryStorage {
-        return SSKEnvironment.shared.primaryStorage
-    }
-
     private var tsAccountManager: TSAccountManager {
         return TSAccountManager.sharedInstance()
+    }
+
+    var databaseStorage: SDSDatabaseStorage {
+        return SSKEnvironment.shared.databaseStorage
     }
 
     // MARK: -
@@ -86,7 +86,7 @@ public class BackupLazyRestore: NSObject {
         guard CurrentAppContext().isMainAppAndActive else {
             return
         }
-        guard tsAccountManager.isRegisteredAndReady() else {
+        guard tsAccountManager.isRegisteredAndReady else {
             return
         }
         guard !isBackupImportInProgress() else {
@@ -139,7 +139,10 @@ public class BackupLazyRestore: NSObject {
             complete(errorCount: errorCount)
             return
         }
-        guard let attachmentPointer = TSAttachment.fetch(uniqueId: attachmentId) as? TSAttachmentPointer else {
+        let attachment = databaseStorage.readReturningResult { (transaction) in
+            return TSAttachment.anyFetch(uniqueId: attachmentId, transaction: transaction)
+        }
+        guard let attachmentPointer = attachment as? TSAttachmentPointer else {
             Logger.warn("could not load attachment.")
             // Not necessarily an error.
             // The attachment might have been deleted since the job began.

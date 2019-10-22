@@ -9,32 +9,50 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_ENUM(NSInteger, OWSMessageCellType) {
     OWSMessageCellType_Unknown,
-    OWSMessageCellType_TextMessage,
-    OWSMessageCellType_OversizeTextMessage,
+    OWSMessageCellType_TextOnlyMessage,
     OWSMessageCellType_Audio,
     OWSMessageCellType_GenericAttachment,
-    OWSMessageCellType_DownloadingAttachment,
     OWSMessageCellType_ContactShare,
-    OWSMessageCellType_MediaAlbum,
+    OWSMessageCellType_MediaMessage,
+    OWSMessageCellType_OversizeTextDownloading,
+    OWSMessageCellType_StickerMessage,
+    OWSMessageCellType_ViewOnce,
 };
 
 NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 
 #pragma mark -
 
+typedef NS_ENUM(NSUInteger, ViewOnceMessageState) {
+    ViewOnceMessageState_Unknown = 0,
+    ViewOnceMessageState_IncomingExpired,
+    ViewOnceMessageState_IncomingDownloading,
+    ViewOnceMessageState_IncomingFailed,
+    ViewOnceMessageState_IncomingAvailable,
+    ViewOnceMessageState_IncomingInvalidContent,
+    ViewOnceMessageState_OutgoingSending,
+    ViewOnceMessageState_OutgoingFailed,
+    ViewOnceMessageState_OutgoingSentExpired,
+};
+
+NSString *NSStringForViewOnceMessageState(ViewOnceMessageState value);
+
+@class AudioMessageView;
 @class ContactShareViewModel;
 @class ConversationViewCell;
 @class DisplayableText;
-@class OWSAudioMessageView;
 @class OWSLinkPreview;
 @class OWSQuotedReplyModel;
 @class OWSUnreadIndicator;
+@class SDSAnyReadTransaction;
+@class SignalServiceAddress;
+@class StickerInfo;
 @class TSAttachment;
 @class TSAttachmentPointer;
 @class TSAttachmentStream;
+@class TSGroupThread;
 @class TSInteraction;
 @class TSThread;
-@class YapDatabaseReadTransaction;
 
 @interface ConversationMediaAlbumItem : NSObject
 
@@ -65,8 +83,7 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 
 @property (nonatomic, readonly) TSInteraction *interaction;
 
-@property (nonatomic, readonly, nullable) OWSQuotedReplyModel *quotedReply;
-
+@property (nonatomic, readonly) TSThread *thread;
 @property (nonatomic, readonly) BOOL isGroupThread;
 
 @property (nonatomic, readonly) BOOL hasBodyText;
@@ -76,11 +93,14 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 @property (nonatomic, readonly) BOOL hasQuotedText;
 @property (nonatomic, readonly) BOOL hasCellHeader;
 
-@property (nonatomic, readonly) BOOL isExpiringMessage;
+@property (nonatomic, readonly) BOOL hasPerConversationExpiration;
+@property (nonatomic, readonly) BOOL isViewOnceMessage;
 
 @property (nonatomic) BOOL shouldShowDate;
 @property (nonatomic) BOOL shouldShowSenderAvatar;
 @property (nonatomic, nullable) NSAttributedString *senderName;
+@property (nonatomic, nullable) NSString *senderUsername;
+@property (nonatomic, nullable) NSString *accessibilityAuthorName;
 @property (nonatomic) BOOL shouldHideFooter;
 @property (nonatomic) BOOL isFirstInCluster;
 @property (nonatomic) BOOL isLastInCluster;
@@ -90,7 +110,7 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 - (ConversationViewCell *)dequeueCellForCollectionView:(UICollectionView *)collectionView
                                              indexPath:(NSIndexPath *)indexPath;
 
-- (void)replaceInteraction:(TSInteraction *)interaction transaction:(YapDatabaseReadTransaction *)transaction;
+- (void)replaceInteraction:(TSInteraction *)interaction transaction:(SDSAnyReadTransaction *)transaction;
 
 - (void)clearCachedLayoutState;
 
@@ -98,7 +118,7 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 
 #pragma mark - Audio Playback
 
-@property (nonatomic, weak) OWSAudioMessageView *lastAudioMessageView;
+@property (nonatomic, weak) AudioMessageView *lastAudioMessageView;
 
 @property (nonatomic, readonly) CGFloat audioDurationSeconds;
 @property (nonatomic, readonly) CGFloat audioProgressSeconds;
@@ -114,21 +134,31 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 
 @property (nonatomic, readonly, nullable) DisplayableText *displayableQuotedText;
 @property (nonatomic, readonly, nullable) NSString *quotedAttachmentMimetype;
-@property (nonatomic, readonly, nullable) NSString *quotedRecipientId;
+@property (nonatomic, readonly, nullable) SignalServiceAddress *quotedAuthorAddress;
 
 // We don't want to try to load the media for this item (if any)
 // if a load has previously failed.
 @property (nonatomic) BOOL didCellMediaFailToLoad;
+
+@property (nonatomic, readonly, nullable) OWSQuotedReplyModel *quotedReply;
 
 @property (nonatomic, readonly, nullable) ContactShareViewModel *contactShare;
 
 @property (nonatomic, readonly, nullable) OWSLinkPreview *linkPreview;
 @property (nonatomic, readonly, nullable) TSAttachment *linkPreviewAttachment;
 
+@property (nonatomic, readonly, nullable) StickerInfo *stickerInfo;
+@property (nonatomic, readonly, nullable) TSAttachmentStream *stickerAttachment;
+@property (nonatomic, readonly) BOOL isFailedSticker;
+@property (nonatomic, readonly) ViewOnceMessageState viewOnceMessageState;
+
 @property (nonatomic, readonly, nullable) NSString *systemMessageText;
 
-// NOTE: This property is only set for incoming messages.
+// NOTE: This property is only set for incoming messages, typing indicators, and thread details.
 @property (nonatomic, readonly, nullable) NSString *authorConversationColorName;
+
+// NOTE: This property is only set for conversation thread details
+@property (nonatomic, readonly, nullable) NSArray<NSString *> *mutualGroupNames;
 
 #pragma mark - MessageActions
 
@@ -161,10 +191,9 @@ NSString *NSStringForOWSMessageCellType(OWSMessageCellType cellType);
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithInteraction:(TSInteraction *)interaction
-                      isGroupThread:(BOOL)isGroupThread
-                        transaction:(YapDatabaseReadTransaction *)transaction
+                             thread:(TSThread *)thread
+                        transaction:(SDSAnyReadTransaction *)transaction
                   conversationStyle:(ConversationStyle *)conversationStyle;
-
 @end
 
 NS_ASSUME_NONNULL_END

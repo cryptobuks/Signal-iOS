@@ -18,12 +18,13 @@ NS_ASSUME_NONNULL_BEGIN
 
 @implementation OWSSyncConfigurationMessage
 
-- (instancetype)initWithReadReceiptsEnabled:(BOOL)areReadReceiptsEnabled
-         showUnidentifiedDeliveryIndicators:(BOOL)showUnidentifiedDeliveryIndicators
-                       showTypingIndicators:(BOOL)showTypingIndicators
-                           sendLinkPreviews:(BOOL)sendLinkPreviews
+- (instancetype)initWithThread:(TSThread *)thread
+                   readReceiptsEnabled:(BOOL)areReadReceiptsEnabled
+    showUnidentifiedDeliveryIndicators:(BOOL)showUnidentifiedDeliveryIndicators
+                  showTypingIndicators:(BOOL)showTypingIndicators
+                      sendLinkPreviews:(BOOL)sendLinkPreviews
 {
-    self = [super init];
+    self = [super initWithThread:thread];
     if (!self) {
         return nil;
     }
@@ -41,7 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
     return [super initWithCoder:coder];
 }
 
-- (nullable SSKProtoSyncMessageBuilder *)syncMessageBuilder
+- (nullable SSKProtoSyncMessageBuilder *)syncMessageBuilderWithTransaction:(SDSAnyReadTransaction *)transaction;
 {
     SSKProtoSyncMessageConfigurationBuilder *configurationBuilder = [SSKProtoSyncMessageConfiguration builder];
     configurationBuilder.readReceipts = self.areReadReceiptsEnabled;

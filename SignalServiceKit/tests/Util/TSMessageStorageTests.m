@@ -2,7 +2,6 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
-#import "OWSPrimaryStorage.h"
 #import "SSKBaseTestObjC.h"
 #import "TSContactThread.h"
 #import "TSGroupThread.h"
@@ -10,8 +9,8 @@
 #import "TSMessage.h"
 #import "TSOutgoingMessage.h"
 #import "TSThread.h"
-#import "YapDatabaseConnection+OWS.h"
 #import <SignalCoreKit/Cryptography.h>
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 @interface TSMessageStorageTests : SSKBaseTestObjC
 
@@ -27,7 +26,7 @@
 {
     [super setUp];
 
-    [self readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
+    [self yapWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
         self.thread = [TSContactThread getOrCreateThreadWithContactId:@"aStupidId" transaction:transaction];
 
         [self.thread saveWithTransaction:transaction];
@@ -53,7 +52,7 @@
     TSIncomingMessage *newMessage =
         [[TSIncomingMessage alloc] initIncomingMessageWithTimestamp:timestamp
                                                            inThread:self.thread
-                                                           authorId:[self.thread contactIdentifier]
+                                                      authorAddress:self.thread.contactAddress
                                                      sourceDeviceId:1
                                                         messageBody:body
                                                       attachmentIds:@[]
@@ -62,7 +61,7 @@
                                                        contactShare:nil
                                                         linkPreview:nil];
 
-    [self readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
+    [self yapWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
         [newMessage saveWithTransaction:transaction];
         messageId = newMessage.uniqueId;
     }];
@@ -88,7 +87,7 @@
         TSIncomingMessage *newMessage =
             [[TSIncomingMessage alloc] initIncomingMessageWithTimestamp:i
                                                                inThread:self.thread
-                                                               authorId:[self.thread contactIdentifier]
+                                                          authorAddress:self.thread.contactAddress
                                                          sourceDeviceId:1
                                                             messageBody:body
                                                           attachmentIds:@[]
@@ -129,10 +128,10 @@
           @"privacy matters; privacy is what allows us to determine who we are and who we want to be.";
 
     __block TSGroupThread *thread;
-    [self readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
+    [self yapWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
         thread = [TSGroupThread getOrCreateThreadWithGroupModel:[[TSGroupModel alloc] initWithTitle:@"fdsfsd"
                                                                                           memberIds:[@[] mutableCopy]
-                                                                                              image:nil
+                                                                                    groupAvatarData:nil
                                                                                             groupId:[NSData data]]
                                                     transaction:transaction];
 
@@ -141,9 +140,10 @@
 
     NSMutableArray<TSIncomingMessage *> *messages = [NSMutableArray new];
     for (uint64_t i = 0; i < 10; i++) {
+        SignalServiceAddress *authorAddress = [[SignalServiceAddress alloc] initWithPhoneNumber:@"+fakephone"];
         TSIncomingMessage *newMessage = [[TSIncomingMessage alloc] initIncomingMessageWithTimestamp:i
                                                                                            inThread:thread
-                                                                                           authorId:@"Ed"
+                                                                                      authorAddress:authorAddress
                                                                                      sourceDeviceId:1
                                                                                         messageBody:body
                                                                                       attachmentIds:@[]

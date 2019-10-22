@@ -18,7 +18,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface OWSLinkDeviceViewController () <OWSQRScannerDelegate>
 
-@property (nonatomic) YapDatabaseConnection *dbConnection;
 @property (nonatomic) UIView *qrScanningView;
 @property (nonatomic) UILabel *scanningInstructionsLabel;
 @property (nonatomic) OWSQRCodeScanningViewController *qrScanningController;
@@ -32,10 +31,6 @@ NS_ASSUME_NONNULL_BEGIN
 {
     [super viewDidLoad];
 
-    self.view.backgroundColor = Theme.backgroundColor;
-
-    self.dbConnection = [[OWSPrimaryStorage sharedManager] newDatabaseConnection];
-
     UIImage *heroImage = [UIImage imageNamed:@"ic_devices_ios"];
     OWSAssertDebug(heroImage);
     UIImageView *heroImageView = [[UIImageView alloc] initWithImage:heroImage];
@@ -44,7 +39,6 @@ NS_ASSUME_NONNULL_BEGIN
     self.scanningInstructionsLabel = [UILabel new];
     self.scanningInstructionsLabel.text = NSLocalizedString(@"LINK_DEVICE_SCANNING_INSTRUCTIONS",
         @"QR Scanning screen instructions, placed alongside a camera view for scanning QR Codes");
-    self.scanningInstructionsLabel.textColor = Theme.primaryColor;
     self.scanningInstructionsLabel.font = UIFont.ows_dynamicTypeCaption1Font;
     self.scanningInstructionsLabel.numberOfLines = 0;
     self.scanningInstructionsLabel.lineBreakMode = NSLineBreakByWordWrapping;
@@ -56,7 +50,7 @@ NS_ASSUME_NONNULL_BEGIN
     [self.qrScanningController.view autoPinEdgeToSuperviewEdge:ALEdgeLeading];
     [self.qrScanningController.view autoPinEdgeToSuperviewEdge:ALEdgeTrailing];
     [self.qrScanningController.view autoPinToTopLayoutGuideOfViewController:self withInset:0.f];
-    [self.qrScanningController.view autoPinToAspectRatio:1.f];
+    [self.qrScanningController.view autoPinToSquareAspectRatio];
 
     UIView *bottomView = [UIView new];
     [self.view addSubview:bottomView];
@@ -122,6 +116,14 @@ NS_ASSUME_NONNULL_BEGIN
     });
 }
 
+- (void)traitCollectionDidChange:(nullable UITraitCollection *)previousTraitCollection
+{
+    [super traitCollectionDidChange:previousTraitCollection];
+
+    self.view.backgroundColor = Theme.backgroundColor;
+    self.scanningInstructionsLabel.textColor = Theme.primaryColor;
+}
+
 #pragma mark - OWSQRScannerDelegate
 
 - (void)controller:(OWSQRCodeScanningViewController *)controller didDetectQRCodeWithString:(NSString *)string
@@ -133,7 +135,7 @@ NS_ASSUME_NONNULL_BEGIN
         NSString *title = NSLocalizedString(@"LINK_DEVICE_INVALID_CODE_TITLE", @"report an invalid linking code");
         NSString *body = NSLocalizedString(@"LINK_DEVICE_INVALID_CODE_BODY", @"report an invalid linking code");
 
-        UIAlertController *alertController =
+        UIAlertController *alert =
             [UIAlertController alertControllerWithTitle:title message:body preferredStyle:UIAlertControllerStyleAlert];
 
         UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:CommonStrings.cancelButton
@@ -143,7 +145,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                                      [self popToLinkedDeviceList];
                                                                  });
                                                              }];
-        [alertController addAction:cancelAction];
+        [alert addAction:cancelAction];
 
         UIAlertAction *proceedAction =
             [UIAlertAction actionWithTitle:NSLocalizedString(@"LINK_DEVICE_RESTART", @"attempt another linking")
@@ -151,18 +153,18 @@ NS_ASSUME_NONNULL_BEGIN
                                    handler:^(UIAlertAction *action) {
                                        [self.qrScanningController startCapture];
                                    }];
-        [alertController addAction:proceedAction];
+        [alert addAction:proceedAction];
 
-        [self presentViewController:alertController animated:YES completion:nil];
+        [self presentAlert:alert];
     } else {
         NSString *title = NSLocalizedString(
             @"LINK_DEVICE_PERMISSION_ALERT_TITLE", @"confirm the users intent to link a new device");
         NSString *linkingDescription
             = NSLocalizedString(@"LINK_DEVICE_PERMISSION_ALERT_BODY", @"confirm the users intent to link a new device");
 
-        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title
-                                                                                 message:linkingDescription
-                                                                          preferredStyle:UIAlertControllerStyleAlert];
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                       message:linkingDescription
+                                                                preferredStyle:UIAlertControllerStyleAlert];
 
         UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:CommonStrings.cancelButton
                                                                style:UIAlertActionStyleCancel
@@ -171,7 +173,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                                      [self popToLinkedDeviceList];
                                                                  });
                                                              }];
-        [alertController addAction:cancelAction];
+        [alert addAction:cancelAction];
 
         UIAlertAction *proceedAction =
             [UIAlertAction actionWithTitle:NSLocalizedString(@"CONFIRM_LINK_NEW_DEVICE_ACTION", @"Button text")
@@ -179,9 +181,9 @@ NS_ASSUME_NONNULL_BEGIN
                                    handler:^(UIAlertAction *action) {
                                        [self provisionWithParser:parser];
                                    }];
-        [alertController addAction:proceedAction];
+        [alert addAction:proceedAction];
 
-        [self presentViewController:alertController animated:YES completion:nil];
+        [self presentAlert:alert];
     }
 }
 
@@ -194,7 +196,7 @@ NS_ASSUME_NONNULL_BEGIN
     OWSAssertDebug(identityKeyPair);
     NSData *myPublicKey = identityKeyPair.publicKey;
     NSData *myPrivateKey = identityKeyPair.privateKey;
-    NSString *accountIdentifier = [TSAccountManager localNumber];
+    SignalServiceAddress *accountAddress = [TSAccountManager localAddress];
     NSData *myProfileKeyData = self.profileManager.localProfileKey.keyData;
     BOOL areReadReceiptsEnabled = self.readReceiptManager.areReadReceiptsEnabled;
 
@@ -202,7 +204,7 @@ NS_ASSUME_NONNULL_BEGIN
                                                                              myPrivateKey:myPrivateKey
                                                                            theirPublicKey:parser.publicKey
                                                                    theirEphemeralDeviceId:parser.ephemeralDeviceId
-                                                                        accountIdentifier:accountIdentifier
+                                                                           accountAddress:accountAddress
                                                                                profileKey:myProfileKeyData
                                                                       readReceiptsEnabled:areReadReceiptsEnabled];
 
@@ -225,12 +227,10 @@ NS_ASSUME_NONNULL_BEGIN
         failure:^(NSError *error) {
             OWSLogError(@"Failed to provision device with error: %@", error);
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self presentViewController:[self retryAlertControllerWithError:error
-                                                                     retryBlock:^{
-                                                                         [self provisionWithParser:parser];
-                                                                     }]
-                                   animated:YES
-                                 completion:nil];
+                [self presentAlert:[self retryAlertControllerWithError:error
+                                                            retryBlock:^{
+                                                                [self provisionWithParser:parser];
+                                                            }]];
             });
         }];
 }

@@ -10,20 +10,46 @@ import Foundation
 
 @objc public class CommonStrings: NSObject {
     @objc
+    static public let backButton = NSLocalizedString("BACK_BUTTON", comment: "return to the previous screen")
+
+    @objc
     static public let dismissButton = NSLocalizedString("DISMISS_BUTTON_TEXT", comment: "Short text to dismiss current modal / actionsheet / screen")
+
     @objc
     static public let cancelButton = NSLocalizedString("TXT_CANCEL_TITLE", comment: "Label for the cancel button in an alert or action sheet.")
+
     @objc
     static public let doneButton = NSLocalizedString("BUTTON_DONE", comment: "Label for generic done button.")
+
     @objc
     static public let retryButton = NSLocalizedString("RETRY_BUTTON_TEXT", comment: "Generic text for button that retries whatever the last action was.")
+
     @objc
     static public let openSettingsButton = NSLocalizedString("OPEN_SETTINGS_BUTTON", comment: "Button text which opens the settings app")
+
     @objc
     static public let errorAlertTitle = NSLocalizedString("ALERT_ERROR_TITLE", comment: "")
+
+    @objc
+    static public let searchPlaceholder = NSLocalizedString("SEARCH_FIELD_PLACE_HOLDER_TEXT", comment: "placeholder text in an empty search field")
 }
 
-@objc public class MessageStrings: NSObject {
+@objc
+public class CommonFormats: NSObject {
+    @objc
+    static public func formatUsername(_ username: String) -> String? {
+        guard let username = username.filterForDisplay else { return nil }
+        return NSLocalizedString("USERNAME_PREFIX",
+                                 comment: "A prefix appeneded to all usernames when displayed") + username
+    }
+}
+
+@objc
+public class MessageStrings: NSObject {
+
+    @objc
+    static public let conversationIsBlocked = NSLocalizedString("CONTACT_CELL_IS_BLOCKED", comment: "An indicator that a contact or group has been blocked.")
+
     @objc
     static public let newGroupDefaultTitle = NSLocalizedString("NEW_GROUP_DEFAULT_TITLE", comment: "Used in place of the group name when a group has not yet been named.")
 
@@ -35,6 +61,15 @@ import Foundation
 
     @objc
     static public let sendButton =  NSLocalizedString("SEND_BUTTON_TITLE", comment: "Label for the button to send a message")
+
+    @objc
+    static public let noteToSelf = NSLocalizedString("NOTE_TO_SELF", comment: "Label for 1:1 conversation with yourself.")
+
+    @objc
+    static public let viewOnceViewPhoto = NSLocalizedString("PER_MESSAGE_EXPIRATION_VIEW_PHOTO", comment: "Label for view-once messages indicating that user can tap to view the message's contents.")
+
+    @objc
+    static public let viewOnceViewVideo = NSLocalizedString("PER_MESSAGE_EXPIRATION_VIEW_VIDEO", comment: "Label for view-once messages indicating that user can tap to view the message's contents.")
 }
 
 @objc

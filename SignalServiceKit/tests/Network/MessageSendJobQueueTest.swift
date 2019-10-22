@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import XCTest
@@ -30,8 +30,8 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
 
         let jobQueue = MessageSenderJobQueue()
         jobQueue.setup()
-        self.readWrite { transaction in
-            jobQueue.add(message: message, transaction: transaction)
+        self.write { transaction in
+            jobQueue.add(message: message.asPreparer, transaction: transaction)
         }
 
         self.wait(for: [expectation], timeout: 0.1)
@@ -45,8 +45,8 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
 
         let jobQueue = MessageSenderJobQueue()
 
-        self.readWrite { transaction in
-            jobQueue.add(message: message, transaction: transaction)
+        self.write { transaction in
+            jobQueue.add(message: message.asPreparer, transaction: transaction)
         }
 
         self.wait(for: [sentBeforeReadyExpectation], timeout: 0.1)
@@ -64,10 +64,10 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
         let message3: TSOutgoingMessage = OutgoingMessageFactory().create()
 
         let jobQueue = MessageSenderJobQueue()
-        self.readWrite { transaction in
-            jobQueue.add(message: message1, transaction: transaction)
-            jobQueue.add(message: message2, transaction: transaction)
-            jobQueue.add(message: message3, transaction: transaction)
+        self.write { transaction in
+            jobQueue.add(message: message1.asPreparer, transaction: transaction)
+            jobQueue.add(message: message2.asPreparer, transaction: transaction)
+            jobQueue.add(message: message3.asPreparer, transaction: transaction)
         }
 
         let sendGroup = DispatchGroup()
@@ -97,8 +97,8 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
 
         let message = OutgoingMessageFactory().buildDeliveryReceipt()
         let expectation = sentExpectation(message: message)
-        self.readWrite { transaction in
-            jobQueue.add(message: message, transaction: transaction)
+        self.write { transaction in
+            jobQueue.add(message: message.asPreparer, transaction: transaction)
         }
 
         self.wait(for: [expectation], timeout: 0.1)
@@ -108,13 +108,13 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
         let message: TSOutgoingMessage = OutgoingMessageFactory().create()
 
         let jobQueue = MessageSenderJobQueue()
-        self.readWrite { transaction in
-            jobQueue.add(message: message, transaction: transaction)
+        self.write { transaction in
+            jobQueue.add(message: message.asPreparer, transaction: transaction)
         }
 
-        let finder = JobRecordFinder()
+        let finder = AnyJobRecordFinder()
         var readyRecords: [SSKJobRecord] = []
-        self.readWrite { transaction in
+        self.read { transaction in
             readyRecords = finder.allRecords(label: MessageSenderJobQueue.jobRecordLabel, status: .ready, transaction: transaction)
         }
         XCTAssertEqual(1, readyRecords.count)
@@ -133,8 +133,8 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
         jobQueue.setup()
         self.wait(for: [expectation], timeout: 0.1)
 
-        self.readWrite { transaction in
-            jobRecord.reload(with: transaction)
+        self.read { transaction in
+            jobRecord.anyReload(transaction: transaction)
         }
 
         XCTAssertEqual(1, jobRecord.failureCount)
@@ -157,8 +157,8 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
         }
 
         // Verify one retry left
-        self.readWrite { transaction in
-            jobRecord.reload(with: transaction)
+        self.read { transaction in
+            jobRecord.anyReload(transaction: transaction)
         }
         XCTAssertEqual(retryCount, jobRecord.failureCount)
         XCTAssertEqual(.running, jobRecord.status)
@@ -168,8 +168,8 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
         XCTAssertNotNil(jobQueue.runAnyQueuedRetry())
         self.wait(for: [expectedFinalResend], timeout: 0.1)
 
-        self.readWrite { transaction in
-            jobRecord.reload(with: transaction)
+        self.read { transaction in
+            jobRecord.anyReload(transaction: transaction)
         }
 
         XCTAssertEqual(retryCount + 1, jobRecord.failureCount)
@@ -183,13 +183,13 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
         let message: TSOutgoingMessage = OutgoingMessageFactory().create()
 
         let jobQueue = MessageSenderJobQueue()
-        self.readWrite { transaction in
-            jobQueue.add(message: message, transaction: transaction)
+        self.write { transaction in
+            jobQueue.add(message: message.asPreparer, transaction: transaction)
         }
 
-        let finder = JobRecordFinder()
+        let finder = AnyJobRecordFinder()
         var readyRecords: [SSKJobRecord] = []
-        self.readWrite { transaction in
+        self.read { transaction in
             readyRecords = finder.allRecords(label: MessageSenderJobQueue.jobRecordLabel, status: .ready, transaction: transaction)
         }
         XCTAssertEqual(1, readyRecords.count)
@@ -207,8 +207,8 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
         jobQueue.setup()
         self.wait(for: [expectation], timeout: 0.1)
 
-        self.readWrite { transaction in
-            jobRecord.reload(with: transaction)
+        self.read { transaction in
+            jobRecord.anyReload(transaction: transaction)
         }
 
         XCTAssertEqual(1, jobRecord.failureCount)
@@ -221,7 +221,7 @@ class MessageSenderJobQueueTest: SSKBaseTestSwift {
         let expectation = self.expectation(description: "sent message")
 
         messageSender.sendMessageWasCalledBlock = { [weak messageSender] sentMessage in
-            guard sentMessage == message else {
+            guard sentMessage.uniqueId == message.uniqueId else {
                 XCTFail("unexpected sentMessage: \(sentMessage)")
                 return
             }

@@ -1,5 +1,5 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 import Foundation
@@ -30,26 +30,24 @@ import SignalMessaging
     // MARK: -
 
     /**
-     * |handle| is a user formatted phone number, e.g. from a system contacts entry
-     */
-    @discardableResult @objc public func initiateCall(handle: String) -> Bool {
-        Logger.info("with handle: \(handle)")
-
-        guard let recipientId = PhoneNumber(fromE164: handle)?.toE164() else {
-            Logger.warn("unable to parse signalId from phone number: \(handle)")
-            return false
-        }
-
-        return initiateCall(recipientId: recipientId, isVideo: false)
-    }
-
-    /**
-     * |recipientId| is a e164 formatted phone number.
+     * |address| is a SignalServiceAddress
      */
     @discardableResult
     @objc
-    public func initiateCall(recipientId: String,
-        isVideo: Bool) -> Bool {
+    public func initiateCall(address: SignalServiceAddress) -> Bool {
+        Logger.info("with address: \(address)")
+
+        guard address.isValid else { return false }
+
+        return initiateCall(address: address, isVideo: false)
+    }
+
+    /**
+     * |address| is a SignalServiceAddress.
+     */
+    @discardableResult
+    @objc
+    public func initiateCall(address: SignalServiceAddress, isVideo: Bool) -> Bool {
         guard let callUIAdapter = AppEnvironment.shared.callService.callUIAdapter else {
             owsFailDebug("missing callUIAdapter")
             return false
@@ -59,26 +57,26 @@ import SignalMessaging
             return false
         }
 
-        let showedAlert = SafetyNumberConfirmationAlert.presentAlertIfNecessary(recipientId: recipientId,
+        let showedAlert = SafetyNumberConfirmationAlert.presentAlertIfNecessary(address: address,
                                                                                 confirmationText: CallStrings.confirmAndCallButtonTitle,
                                                                                 contactsManager: self.contactsManager,
                                                                                 completion: { didConfirmIdentity in
                                                                                     if didConfirmIdentity {
-                                                                                        _ = self.initiateCall(recipientId: recipientId, isVideo: isVideo)
+                                                                                        _ = self.initiateCall(address: address, isVideo: isVideo)
                                                                                     }
         })
         guard !showedAlert else {
             return false
         }
 
-        frontmostViewController.ows_ask(forMicrophonePermissions: { granted in
+        frontmostViewController.ows_askForMicrophonePermissions { granted in
             guard granted == true else {
                 Logger.warn("aborting due to missing microphone permissions.")
                 OWSAlerts.showNoMicrophonePermissionAlert()
                 return
             }
-            callUIAdapter.startAndShowOutgoingCall(recipientId: recipientId, hasLocalVideo: isVideo)
-        })
+            callUIAdapter.startAndShowOutgoingCall(address: address, hasLocalVideo: isVideo)
+        }
 
         return true
     }

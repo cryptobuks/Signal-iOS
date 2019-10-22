@@ -7,6 +7,8 @@
 #import "TSConstants.h"
 #import <SignalCoreKit/NSData+OWS.h>
 #import <SignalMetadataKit/SignalMetadataKit-Swift.h>
+#import <SignalServiceKit/SSKEnvironment.h>
+#import <SignalServiceKit/SignalServiceKit-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -76,6 +78,13 @@ NS_ASSUME_NONNULL_BEGIN
     return [[TSRequest alloc] initWithURL:url method:method parameters:parameters];
 }
 
+#pragma mark - Dependencies
+
+- (TSAccountManager *)tsAccountManager
+{
+    return SSKEnvironment.shared.tsAccountManager;
+}
+
 #pragma mark - Authorization
 
 - (void)setAuthUsername:(nullable NSString *)authUsername
@@ -101,7 +110,9 @@ NS_ASSUME_NONNULL_BEGIN
     OWSAssertDebug(self.shouldHaveAuthorizationHeaders);
 
     @synchronized(self) {
-        return (_authUsername ?: [TSAccountManager localNumber]);
+        NSString *_Nullable result = (_authUsername ?: TSAccountManager.localAddress.serviceIdentifier);
+        OWSAssertDebug(result.length > 0);
+        return result;
     }
 }
 
@@ -110,7 +121,9 @@ NS_ASSUME_NONNULL_BEGIN
     OWSAssertDebug(self.shouldHaveAuthorizationHeaders);
 
     @synchronized(self) {
-        return (_authPassword ?: [TSAccountManager serverAuthToken]);
+        NSString *_Nullable result = (_authPassword ?: self.tsAccountManager.storedServerAuthToken);
+        OWSAssertDebug(result.length > 0);
+        return result;
     }
 }
 

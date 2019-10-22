@@ -1,4 +1,4 @@
-platform :ios, '9.0'
+platform :ios, '10.0'
 source 'https://github.com/CocoaPods/Specs.git'
 
 use_frameworks!
@@ -21,7 +21,7 @@ def shared_pods
   pod 'Curve25519Kit', git: 'https://github.com/signalapp/Curve25519Kit', testspecs: ["Tests"]
   # pod 'Curve25519Kit', path: '../Curve25519Kit', testspecs: ["Tests"]
 
-  pod 'SignalMetadataKit', git: 'https://github.com/signalapp/SignalMetadataKit', testspecs: ["Tests"]
+  pod 'SignalMetadataKit', git: 'git@github.com:signalapp/SignalMetadataKit', testspecs: ["Tests"]
   # pod 'SignalMetadataKit', path: '../SignalMetadataKit', testspecs: ["Tests"]
 
   pod 'SignalServiceKit', path: '.', testspecs: ["Tests"]
@@ -34,11 +34,14 @@ def shared_pods
   # forked third party pods
   ###
 
+  # pod 'GRDB.swift/SQLCipher', path: '../GRDB.swift'
+  pod 'GRDB.swift/SQLCipher'
+
   # Includes some soon to be released "unencrypted header" changes required for the Share Extension
   pod 'SQLCipher', ">= 4.0.1"
 
   # Forked for performance optimizations that are not likely to be upstreamed as they are specific
-  # to our limited use of Mantle 
+  # to our limited use of Mantle
   pod 'Mantle', git: 'https://github.com/signalapp/Mantle', branch: 'signal-master'
   # pod 'Mantle', path: '../Mantle'
 
@@ -47,7 +50,7 @@ def shared_pods
   # pod 'YapDatabase/SQLCipher', path: '../YapDatabase'
 
   # Forked to incorporate our self-built binary artifact.
-  pod 'GRKOpenSSLFramework', git: 'https://github.com/signalapp/GRKOpenSSLFramework'
+  pod 'GRKOpenSSLFramework', git: 'https://github.com/signalapp/GRKOpenSSLFramework', branch: 'mkirk/1.0.2t'
   #pod 'GRKOpenSSLFramework', path: '../GRKOpenSSLFramework'
 
   pod 'Starscream', git: 'git@github.com:signalapp/Starscream.git', branch: 'signal-release'
@@ -60,7 +63,7 @@ def shared_pods
   pod 'AFNetworking', inhibit_warnings: true
   pod 'PureLayout', :inhibit_warnings => true
   pod 'Reachability', :inhibit_warnings => true
-  pod 'YYImage', :inhibit_warnings => true
+  pod 'lottie-ios', :inhibit_warnings => true
 end
 
 target 'Signal' do
@@ -68,6 +71,10 @@ target 'Signal' do
   pod 'SSZipArchive', :inhibit_warnings => true
 
   target 'SignalTests' do
+    inherit! :search_paths
+  end
+
+  target 'SignalPerformanceTests' do
     inherit! :search_paths
   end
 end
@@ -82,6 +89,8 @@ end
 
 post_install do |installer|
   enable_extension_support_for_purelayout(installer)
+  configure_warning_flags(installer)
+  configure_testable_build(installer)
 end
 
 # PureLayout by default makes use of UIApplication, and must be configured to be built for an extension.
@@ -93,6 +102,37 @@ def enable_extension_support_for_purelayout(installer)
           build_configuration.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = ['$(inherited)', 'PURELAYOUT_APP_EXTENSIONS=1']
         end
       end
+    end
+  end
+end
+
+# We want some warning to be treated as errors.
+#
+# NOTE: We have to manually keep this list in sync with what's in our
+# Signal.xcodeproj config in Xcode go to:
+#   Signal Project > Build Settings > Other Warning Flags
+def configure_warning_flags(installer)
+  installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_configuration|
+          build_configuration.build_settings['WARNING_CFLAGS'] = ['$(inherited)',
+                                                                  '-Werror=incompatible-pointer-types',
+                                                                  '-Werror=protocol',
+                                                                  '-Werror=incomplete-implementation',
+                                                                  '-Werror=objc-literal-conversion']
+      end
+  end
+end
+
+def configure_testable_build(installer)
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |build_configuration|
+      next unless ["Testable Release", "Debug"].include?(build_configuration.name)
+
+      build_configuration.build_settings['OTHER_CFLAGS'] ||= '$(inherited) -DTESTABLE_BUILD'
+      build_configuration.build_settings['OTHER_SWIFT_FLAGS'] ||= '$(inherited) -DTESTABLE_BUILD'
+      build_configuration.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= '$(inherited) TESTABLE_BUILD=1'
+      build_configuration.build_settings['ENABLE_TESTABILITY'] = 'YES'
+      build_configuration.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
     end
   end
 end

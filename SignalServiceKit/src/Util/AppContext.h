@@ -1,8 +1,17 @@
 //
-//  Copyright (c) 2018 Open Whisper Systems. All rights reserved.
+//  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 //
 
 NS_ASSUME_NONNULL_BEGIN
+
+static inline BOOL OWSIsDebugBuild()
+{
+#ifdef DEBUG
+    return YES;
+#else
+    return NO;
+#endif
+}
 
 // These are fired whenever the corresponding "main app" or "app extension"
 // notification is fired.
@@ -34,7 +43,11 @@ NSString *NSStringForUIApplicationState(UIApplicationState value);
 
 @property (nonatomic, readonly) BOOL isRunningTests;
 
+@property (nonatomic, readonly) NSDate *buildTime;
+
 @property (atomic, nullable) UIWindow *mainWindow;
+
+@property (nonatomic, readonly) UIInterfaceOrientation interfaceOrientation;
 
 // Unlike UIApplication.applicationState, this is thread-safe.
 // It contains the "last known" application state.
@@ -51,7 +64,7 @@ NSString *NSStringForUIApplicationState(UIApplicationState value);
 // This conservatism is useful, since we want to err on the side of
 // caution when, for example, we do work that should only be done
 // when the app is foreground and active.
-@property (atomic, readonly) UIApplicationState reportedApplicationState;
+@property (readonly) UIApplicationState reportedApplicationState;
 
 // A convenience accessor for reportedApplicationState.
 //
@@ -85,7 +98,7 @@ NSString *NSStringForUIApplicationState(UIApplicationState value);
 - (nullable UIViewController *)frontmostViewController;
 
 // Returns nil if isMainApp is NO
-@property (nullable, nonatomic, readonly) UIAlertAction *openSystemSettingsAction;
+- (nullable UIAlertAction *)openSystemSettingsActionWithCompletion:(void (^_Nullable)(void))completion;
 
 // Should be a NOOP if isMainApp is NO.
 - (void)setNetworkActivityIndicatorVisible:(BOOL)value;
@@ -100,6 +113,8 @@ NSString *NSStringForUIApplicationState(UIApplicationState value);
 
 - (NSString *)appSharedDataDirectoryPath;
 
+- (NSString *)appDatabaseBaseDirectoryPath;
+
 - (NSUserDefaults *)appUserDefaults;
 
 @end
@@ -109,7 +124,7 @@ void SetCurrentAppContext(id<AppContext> appContext);
 
 void ExitShareExtension(void);
 
-#ifdef DEBUG
+#ifdef TESTABLE_BUILD
 void ClearCurrentAppContextForTests(void);
 #endif
 

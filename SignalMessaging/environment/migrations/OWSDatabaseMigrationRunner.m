@@ -21,11 +21,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - Dependencies
 
-- (OWSPrimaryStorage *)primaryStorage
+- (SDSDatabaseStorage *)databaseStorage
 {
-    OWSAssertDebug(SSKEnvironment.shared.primaryStorage);
-
-    return SSKEnvironment.shared.primaryStorage;
+    return SDSDatabaseStorage.shared;
 }
 
 #pragma mark -
@@ -33,7 +31,7 @@ NS_ASSUME_NONNULL_BEGIN
 // This should all migrations which do NOT qualify as safeBlockingMigrations:
 - (NSArray<OWSDatabaseMigration *> *)allMigrations
 {
-    return @[
+    NSArray<OWSDatabaseMigration *> *prodMigrations = @[
         [[OWS100RemoveTSRecipientsMigration alloc] init],
         [[OWS102MoveLoggingPreferenceToUserDefaults alloc] init],
         [[OWS103EnableVideoCalling alloc] init],
@@ -48,15 +46,25 @@ NS_ASSUME_NONNULL_BEGIN
         [[OWS112TypingIndicatorsMigration alloc] init],
         [[OWS113MultiAttachmentMediaMessages alloc] init],
         [[OWS114RemoveDynamicInteractions alloc] init],
+        [OWS115EnsureProfileAvatars new]
     ];
+
+    if (SSKFeatureFlags.storageMode != StorageModeYdb) {
+        return [prodMigrations arrayByAddingObjectsFromArray:@ [[OWS1XXGRDBMigration new]]];
+    } else {
+        return prodMigrations;
+    }
 }
 
 - (void)assumeAllExistingMigrationsRun
 {
-    for (OWSDatabaseMigration *migration in self.allMigrations) {
-        OWSLogInfo(@"Skipping migration on new install: %@", migration);
-        [migration save];
-    }
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        for (OWSDatabaseMigration *migration in self.allMigrations) {
+            OWSLogInfo(@"Skipping migration on new install: %@", migration);
+
+            [migration markAsCompleteWithTransaction:transaction];
+        }
+    }];
 }
 
 - (void)runAllOutstandingWithCompletion:(OWSDatabaseMigrationCompletion)completion
@@ -74,11 +82,12 @@ NS_ASSUME_NONNULL_BEGIN
 {
     NSMutableSet<NSString *> *knownMigrationIds = [NSMutableSet new];
     for (OWSDatabaseMigration *migration in self.allMigrations) {
-        [knownMigrationIds addObject:migration.uniqueId];
+        [knownMigrationIds addObject:migration.migrationId];
     }
 
-    [self.primaryStorage.dbReadWriteConnection readWriteWithBlock:^(YapDatabaseReadWriteTransaction *transaction) {
-        NSArray<NSString *> *savedMigrationIds = [transaction allKeysInCollection:OWSDatabaseMigration.collection];
+    [self.databaseStorage writeWithBlock:^(SDSAnyWriteTransaction *transaction) {
+        NSArray<NSString *> *savedMigrationIds =
+            [OWSDatabaseMigration allCompleteMigrationIdsWithTransaction:transaction];
 
         NSMutableSet<NSString *> *unknownMigrationIds = [NSMutableSet new];
         [unknownMigrationIds addObjectsFromArray:savedMigrationIds];
@@ -86,7 +95,7 @@ NS_ASSUME_NONNULL_BEGIN
 
         for (NSString *unknownMigrationId in unknownMigrationIds) {
             OWSLogInfo(@"Culling unknown migration: %@", unknownMigrationId);
-            [transaction removeObjectForKey:unknownMigrationId inCollection:OWSDatabaseMigration.collection];
+            [OWSDatabaseMigration markMigrationIdAsIncomplete:unknownMigrationId transaction:transaction];
         }
     }];
 }
@@ -114,14 +123,16 @@ NS_ASSUME_NONNULL_BEGIN
     [migrations removeObjectAtIndex:0];
 
     // If migration has already been run, skip it.
-    if ([OWSDatabaseMigration fetchObjectWithUniqueID:migration.uniqueId] != nil) {
+    if (migration.isCompleteWithSneakyTransaction) {
         [self runMigrations:migrations completion:completion];
         return;
     }
 
-    OWSLogInfo(@"Running migration: %@", migration);
+    OWSLogInfo(@"Running migration: %@ %@", migration, migration.migrationId);
+
     [migration runUpWithCompletion:^{
-        OWSLogInfo(@"Migration complete: %@", migration);
+        OWSLogInfo(@"Migration complete: %@ %@", migration, migration.migrationId);
+
         [self runMigrations:migrations completion:completion];
     }];
 }
